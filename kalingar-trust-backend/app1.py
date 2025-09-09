@@ -1,9 +1,12 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import json
 import os
 from datetime import datetime
 import sqlite3
+import pandas as pd
+from io import BytesIO
+import tempfile
 
 app = Flask(__name__)
 CORS(app, origins=['http://localhost:3000', 'http://127.0.0.1:3000'])
@@ -118,13 +121,13 @@ def login():
         if user:
             token = f"valid-token-{username}-{int(datetime.now().timestamp())}"
             VALID_TOKENS.add(token)
-            print(f"✅ Login successful, token created")
+            print(f"✅ Login successful")
             return {
                 'access_token': token,
                 'user': {'username': user['username'], 'name': user['name']}
             }
 
-        print("❌ Login failed - invalid credentials")
+        print("❌ Login failed")
         return {'error': 'Invalid credentials'}, 401
 
     except Exception as e:
@@ -182,6 +185,87 @@ def get_members():
     except Exception as e:
         print(f"❌ Get members error: {str(e)}")
         return {'error': str(e)}, 500
+
+# NEW ROUTE - EXPORT MEMBERS TO EXCEL
+@app.route('/api/members/export', methods=['GET'])
+def export_members():
+    auth_header = request.headers.get('Authorization')
+    if not verify_token(auth_header):
+        return {'error': 'Missing or invalid token'}, 401
+
+    try:
+        print("📄 Exporting members to Excel...")
+
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM members WHERE is_active = 1 ORDER BY name')
+
+        members_data = []
+        for row in cursor.fetchall():
+            member = {
+                'Member ID': row['member_id'],
+                'Name': row['name'],
+                'Father Name': row['father_name'],
+                'Mobile': row['mobile'],
+                'Email': row['email'],
+                'Address': row['address'],
+                'Gender': row['gender'],
+                'Wife Name': row['wife_name'] or '',
+                'Head of Family': row['head_of_family'],
+                'Family Head Name': row['family_head_name'] or '',
+                'Second Contact': row['second_contact'] or '',
+                'Old Balance': float(row['old_balance']),
+                'Created Date': row['created_at']
+            }
+            members_data.append(member)
+
+        conn.close()
+
+        if not members_data:
+            return {'error': 'No members found to export'}, 404
+
+        # Create DataFrame and Excel file
+        df = pd.DataFrame(members_data)
+
+        # Create a temporary file
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx')
+
+        # Write to Excel with formatting
+        with pd.ExcelWriter(temp_file.name, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='Members List', index=False)
+
+            # Get the worksheet to apply formatting
+            worksheet = writer.sheets['Members List']
+
+            # Auto-adjust column widths
+            for column in worksheet.columns:
+                max_length = 0
+                column_letter = column[0].column_letter
+                for cell in column:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = min(max_length + 2, 50)
+                worksheet.column_dimensions[column_letter].width = adjusted_width
+
+        # Generate filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"Kalingar_Trust_Members_{timestamp}.xlsx"
+
+        print(f"✅ Members Excel export created: {len(members_data)} records")
+
+        return send_file(
+            temp_file.name,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+
+    except Exception as e:
+        print(f"❌ Export members error: {str(e)}")
+        return {'error': f'Export failed: {str(e)}'}, 500
 
 @app.route('/api/members', methods=['POST'])
 def create_member():
@@ -374,7 +458,7 @@ def get_bank_accounts():
                       bank_name LIKE ? OR branch_name LIKE ?
             ''', (f'%{search}%', f'%{search}%', f'%{search}%', f'%{search}%'))
         else:
-            cursor.execute('SELECT * FROM bank_accounts')
+            cursor.execute('SELECT * FROM bank_accounts ORDER BY account_name')
 
         accounts = []
         for row in cursor.fetchall():
@@ -396,6 +480,83 @@ def get_bank_accounts():
     except Exception as e:
         print(f"❌ Get bank accounts error: {str(e)}")
         return {'error': str(e)}, 500
+
+# NEW ROUTE - EXPORT BANK ACCOUNTS TO EXCEL
+@app.route('/api/bank-accounts/export', methods=['GET'])
+def export_bank_accounts():
+    auth_header = request.headers.get('Authorization')
+    if not verify_token(auth_header):
+        return {'error': 'Missing or invalid token'}, 401
+
+    try:
+        print("📄 Exporting bank accounts to Excel...")
+
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM bank_accounts ORDER BY account_name')
+
+        accounts_data = []
+        for row in cursor.fetchall():
+            account = {
+                'Account Number': row['account_no'],
+                'Account Name': row['account_name'],
+                'IFSC Code': row['ifsc_code'],
+                'Bank Name': row['bank_name'],
+                'Branch Name': row['branch_name'],
+                'Branch Address': row['branch_address'],
+                'Contact Number': row['contact_no'],
+                'Status': row['status'],
+                'Created Date': row['created_at']
+            }
+            accounts_data.append(account)
+
+        conn.close()
+
+        if not accounts_data:
+            return {'error': 'No bank accounts found to export'}, 404
+
+        # Create DataFrame and Excel file
+        df = pd.DataFrame(accounts_data)
+
+        # Create a temporary file
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx')
+
+        # Write to Excel with formatting
+        with pd.ExcelWriter(temp_file.name, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='Bank Accounts', index=False)
+
+            # Get the worksheet to apply formatting
+            worksheet = writer.sheets['Bank Accounts']
+
+            # Auto-adjust column widths
+            for column in worksheet.columns:
+                max_length = 0
+                column_letter = column[0].column_letter
+                for cell in column:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = min(max_length + 2, 50)
+                worksheet.column_dimensions[column_letter].width = adjusted_width
+
+        # Generate filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"Kalingar_Trust_Bank_Accounts_{timestamp}.xlsx"
+
+        print(f"✅ Bank accounts Excel export created: {len(accounts_data)} records")
+
+        return send_file(
+            temp_file.name,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+
+    except Exception as e:
+        print(f"❌ Export bank accounts error: {str(e)}")
+        return {'error': f'Export failed: {str(e)}'}, 500
 
 @app.route('/api/bank-accounts', methods=['POST'])
 def create_bank_account():
@@ -445,7 +606,6 @@ def create_bank_account():
         print(f"❌ Create bank account error: {str(e)}")
         return {'error': str(e)}, 500
 
-# MISSING ROUTE - BANK ACCOUNT UPDATE
 @app.route('/api/bank-accounts/<int:account_id>', methods=['PUT'])
 def update_bank_account(account_id):
     auth_header = request.headers.get('Authorization')
@@ -456,39 +616,30 @@ def update_bank_account(account_id):
         data = request.get_json()
         print(f"✏️ Updating bank account {account_id}: {data['accountName']}")
 
-        # Validate required fields
         required = ['accountNo', 'accountName', 'ifscCode', 'bankName', 
                    'branchName', 'branchAddress', 'contactNo']
         missing = [field for field in required if not data.get(field)]
 
         if missing:
             error_msg = f'Missing required fields: {", ".join(missing)}'
-            print(f"❌ Validation error: {error_msg}")
             return {'error': error_msg}, 400
 
         conn = get_db()
         cursor = conn.cursor()
 
-        # Check if account exists
         cursor.execute('SELECT id, account_no FROM bank_accounts WHERE id = ?', (account_id,))
         existing_account = cursor.fetchone()
         if not existing_account:
             conn.close()
-            error_msg = f'Bank account with ID {account_id} not found'
-            print(f"❌ Account not found: {error_msg}")
-            return {'error': error_msg}, 404
+            return {'error': f'Bank account with ID {account_id} not found'}, 404
 
-        # Check if new account number already exists for a different account
         if data['accountNo'] != existing_account['account_no']:
             cursor.execute('SELECT id FROM bank_accounts WHERE account_no = ? AND id != ?', 
                           (data['accountNo'], account_id))
             if cursor.fetchone():
                 conn.close()
-                error_msg = f'Account number {data["accountNo"]} already exists'
-                print(f"❌ Duplicate account number: {error_msg}")
-                return {'error': error_msg}, 400
+                return {'error': f'Account number {data["accountNo"]} already exists'}, 400
 
-        # Update bank account
         cursor.execute('''
             UPDATE bank_accounts SET 
                 account_no = ?, account_name = ?, ifsc_code = ?, bank_name = ?,
@@ -608,13 +759,15 @@ if __name__ == '__main__':
     print("📍 Initializing SQLite Database...")
     init_db()
     migrate_db()
-    print("✅ Database ready with COMPLETE CRUD support!")
+    print("✅ Database ready with Excel export support!")
     print("📍 Available endpoints:")
     print("  🔐 POST /api/auth/login")
-    print("  👥 GET/POST/PUT/DELETE /api/members (COMPLETE)")
-    print("  🏦 GET/POST/PUT/DELETE /api/bank-accounts (COMPLETE)")
+    print("  👥 GET/POST/PUT/DELETE /api/members")
+    print("  📄 GET /api/members/export (Excel)")
+    print("  🏦 GET/POST/PUT/DELETE /api/bank-accounts")
+    print("  📄 GET /api/bank-accounts/export (Excel)")
     print("  📊 GET /api/dashboard/stats")
     print("=" * 50)
     print("🎉 Ready to use! Login: shamganesh / 123456789")
-    print("✏️ Full editing support for members AND bank accounts!")
+    print("📋 Excel export functionality enabled!")
     app.run(debug=True, port=5000, host='0.0.0.0')
