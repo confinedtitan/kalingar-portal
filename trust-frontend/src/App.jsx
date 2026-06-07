@@ -331,6 +331,7 @@ export default function App() {
                 onViewMember={handleViewMember}
                 onExportExcel={exportToExcel}
                 onResetPassword={handleResetPassword}
+                onImportSuccess={fetchMembers}
               />
             )}
 

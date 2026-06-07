@@ -1,6 +1,11 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import RegexValidator
+
+if TYPE_CHECKING:
+    from django.db.models import QuerySet
 
 class Member(models.Model):
     """
@@ -40,6 +45,11 @@ class Member(models.Model):
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    # Reverse relation — annotated explicitly so Pyright knows about it
+    # (django-stubs cannot infer reverse relations from related_name strings)
+    if TYPE_CHECKING:
+        children: models.Manager[Child]
     
     class Meta:
         ordering = ['name']

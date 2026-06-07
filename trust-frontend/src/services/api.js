@@ -67,6 +67,11 @@ export const memberAPI = {
 
   exportExcel: () =>
     api.get('/members/export_excel/', { responseType: 'blob' }),
+
+  importExcel: (formData) =>
+    api.post('/members/import-excel/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
 };
 
 // Payments API

@@ -38,7 +38,7 @@ class MemberViewSet(viewsets.ModelViewSet):
     """
     queryset = Member.objects.all()
     permission_classes = [IsAdminOrOwner]
-    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]  # type: ignore[assignment]
     filterset_fields = ['is_active']
     search_fields = ['name', 'phone', 'father_name']
     ordering_fields = ['name', 'created_at', 'annual_tax', 'amount_due']
@@ -57,6 +57,8 @@ class MemberViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Filter queryset based on user role"""
         user = self.request.user
+        # IsAdminOrOwner ensures only authenticated Users reach here
+        assert isinstance(user, User)
         if user.is_staff:
             # Admin sees all members
             return Member.objects.all()
@@ -148,6 +150,37 @@ class MemberViewSet(viewsets.ModelViewSet):
         
         return response
 
+    @action(detail=False, methods=['post'], url_path='import-excel',
+            permission_classes=[permissions.IsAdminUser])
+    def import_excel(self, request):
+        """Bulk import members from a Tamil Excel file (Admin only)"""
+        excel_file = request.FILES.get('excel_file')
+        if not excel_file:
+            return Response(
+                {'error': 'No file uploaded. Send a .xlsx file as "excel_file".'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not excel_file.name.endswith('.xlsx'):
+            return Response(
+                {'error': 'Only .xlsx files are supported.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        import openpyxl
+        from .utils import process_excel_workbook
+
+        try:
+            wb = openpyxl.load_workbook(excel_file, data_only=True)
+        except Exception as exc:
+            return Response(
+                {'error': f'Failed to read Excel file: {exc}'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        results = process_excel_workbook(wb)
+        return Response(results, status=status.HTTP_200_OK)
+
 
 class ChildViewSet(viewsets.ModelViewSet):
     """
@@ -160,6 +193,7 @@ class ChildViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Filter children based on user role"""
         user = self.request.user
+        assert isinstance(user, User)
         if user.is_staff:
             return Child.objects.all()
         else:
@@ -189,6 +223,9 @@ class AuthViewSet(viewsets.ViewSet):
             user = authenticate(username=phone, password=password)
             
             if user:
+                # Narrow the type from AbstractBaseUser to User for type-checker safety.
+                # authenticate() always returns a User instance when successful.
+                assert isinstance(user, User)
                 # Get or create token
                 token, created = Token.objects.get_or_create(user=user)
                 
@@ -213,7 +250,7 @@ class AuthViewSet(viewsets.ViewSet):
                         'user_id': user.id,
                         'phone': phone,
                         'is_admin': user.is_staff,
-                        'name': user.username,
+                        'name': user.get_username(),  # get_username() is defined on AbstractBaseUser
                         'password_reset_required': False,
                     })
             else:
@@ -314,7 +351,8 @@ class IsAdminOrReadOnly(permissions.BasePermission):
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
             return True
-        return request.user and request.user.is_staff
+        # is_staff lives on User/PermissionsMixin, not AbstractBaseUser — guard with isinstance
+        return isinstance(request.user, User) and request.user.is_staff
 
 
 class AnnouncementViewSet(viewsets.ModelViewSet):
@@ -322,6 +360,8 @@ class AnnouncementViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated, IsAdminOrReadOnly]
 
     def get_queryset(self):
+        # IsAuthenticated ensures request.user is a real User here
+        assert isinstance(self.request.user, User)
         if self.request.user.is_staff:
             return Announcement.objects.all()
         return Announcement.objects.filter(is_active=True)
@@ -332,6 +372,8 @@ class EventViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated, IsAdminOrReadOnly]
 
     def get_queryset(self):
+        # IsAuthenticated ensures request.user is a real User here
+        assert isinstance(self.request.user, User)
         if self.request.user.is_staff:
             return Event.objects.all()
         return Event.objects.filter(is_active=True)
@@ -342,6 +384,8 @@ class MeetingViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated, IsAdminOrReadOnly]
 
     def get_queryset(self):
+        # IsAuthenticated ensures request.user is a real User here
+        assert isinstance(self.request.user, User)
         if self.request.user.is_staff:
             return Meeting.objects.all()
         return Meeting.objects.filter(is_active=True)

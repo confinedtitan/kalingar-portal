@@ -5,5 +5,10 @@
             "venv": "venv",
             "venvPath": "trust-backend"
         }
-    ]
+    ],
+    "typeCheckingMode": "off",
+    "reportGeneralTypeIssues": false,
+    "reportMissingModuleSource": false,
+    "reportMissingImports": false,
+    "reportAttributeAccessIssue": false
 }

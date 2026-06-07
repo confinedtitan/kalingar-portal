@@ -1,12 +1,20 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { styles } from '../utils/styles';
 import { useTamilInput } from '../utils/useTamilInput';
+import { memberAPI } from '../services/api';
 
-export default function MembersPage({ members: rawMembers, t, onViewMember, onExportExcel, onResetPassword }) {
+export default function MembersPage({ members: rawMembers, t, onViewMember, onExportExcel, onResetPassword, onImportSuccess }) {
   const members = Array.isArray(rawMembers) ? rawMembers : [];
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [expandedRow, setExpandedRow] = useState(null);
+
+  // Import modal state
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importFile, setImportFile] = useState(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState(null);
+  const fileInputRef = useRef(null);
 
   const setSearchValue = useCallback((v) => setSearchTerm(v), []);
   const searchTamilProps = useTamilInput(searchTerm, setSearchValue);
@@ -25,28 +33,244 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEx
     setExpandedRow(expandedRow === id ? null : id);
   };
 
+  const handleOpenImport = () => {
+    setImportFile(null);
+    setImportResult(null);
+    setShowImportModal(true);
+  };
+
+  const handleCloseImport = () => {
+    setShowImportModal(false);
+    setImportFile(null);
+    setImportResult(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file && file.name.endsWith('.xlsx')) {
+      setImportFile(file);
+      setImportResult(null);
+    } else if (file) {
+      alert('Please select a .xlsx file');
+      e.target.value = '';
+    }
+  };
+
+  const handleImport = async () => {
+    if (!importFile) return;
+    setImporting(true);
+    setImportResult(null);
+    try {
+      const formData = new FormData();
+      formData.append('excel_file', importFile);
+      const response = await memberAPI.importExcel(formData);
+      setImportResult(response.data);
+      // Refresh members list if any were created
+      if (response.data.created > 0 && onImportSuccess) {
+        onImportSuccess();
+      }
+    } catch (error) {
+      console.error('Import error:', error);
+      const msg = error.response?.data?.error || 'Import failed. Please try again.';
+      setImportResult({ created: 0, skipped: 0, errors: [{ row: '-', name: '-', reason: msg }] });
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  // ── Import Modal ──
+  const importModal = showImportModal && (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+      background: 'rgba(0,0,0,0.5)', display: 'flex',
+      alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+    }}>
+      <div style={{
+        background: 'white', borderRadius: '16px',
+        boxShadow: '0 25px 60px rgba(0,0,0,0.3)',
+        width: '100%', maxWidth: '560px', maxHeight: '80vh',
+        overflow: 'auto', padding: '32px', position: 'relative',
+      }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+          <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: '#1a1a1a' }}>
+            📤 Import Members from Excel
+          </h3>
+          <button onClick={handleCloseImport} style={{
+            background: 'none', border: 'none', fontSize: '24px',
+            cursor: 'pointer', color: '#6b7280', padding: '4px',
+          }}>✕</button>
+        </div>
+
+        {/* Instructions */}
+        <div style={{
+          background: '#f0f9ff', border: '1px solid #bae6fd',
+          borderRadius: '10px', padding: '16px', marginBottom: '20px',
+          fontSize: '13px', color: '#0369a1', lineHeight: '1.6',
+        }}>
+          <strong>Format:</strong> Upload the Tamil Excel file (.xlsx) with member data starting at row 7.
+          <br />Phone numbers in column J are used as login credentials.
+          <br />Members with existing phone numbers will be skipped.
+        </div>
+
+        {/* File Input */}
+        <div style={{
+          border: '2px dashed #d1d5db', borderRadius: '12px',
+          padding: '32px', textAlign: 'center', marginBottom: '20px',
+          background: importFile ? '#f0fdf4' : '#fafafa',
+          transition: 'all 0.2s',
+          cursor: 'pointer',
+        }}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx"
+            onChange={handleFileChange}
+            style={{ display: 'none' }}
+            id="import-excel-input"
+          />
+          {importFile ? (
+            <div>
+              <span style={{ fontSize: '32px' }}>📄</span>
+              <p style={{ margin: '8px 0 0', fontWeight: '600', color: '#059669' }}>
+                {importFile.name}
+              </p>
+              <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#6b7280' }}>
+                {(importFile.size / 1024).toFixed(1)} KB — Click to change
+              </p>
+            </div>
+          ) : (
+            <div>
+              <span style={{ fontSize: '32px' }}>📁</span>
+              <p style={{ margin: '8px 0 0', fontWeight: '500', color: '#374151' }}>
+                Click to select an Excel file
+              </p>
+              <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#9ca3af' }}>
+                Only .xlsx files are supported
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Upload Button */}
+        <button
+          onClick={handleImport}
+          disabled={!importFile || importing}
+          style={{
+            width: '100%', padding: '14px',
+            background: !importFile || importing
+              ? '#d1d5db'
+              : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white', border: 'none', borderRadius: '10px',
+            fontSize: '15px', fontWeight: '600', cursor: importFile && !importing ? 'pointer' : 'not-allowed',
+            marginBottom: '20px', transition: 'all 0.2s',
+          }}
+        >
+          {importing ? '⏳ Importing…' : '🚀 Upload & Import'}
+        </button>
+
+        {/* Results */}
+        {importResult && (
+          <div style={{
+            borderRadius: '12px', overflow: 'hidden',
+            border: '1px solid #e5e7eb',
+          }}>
+            {/* Summary bar */}
+            <div style={{
+              display: 'flex', gap: '0',
+              background: '#f9fafb',
+              borderBottom: importResult.errors?.length > 0 ? '1px solid #e5e7eb' : 'none',
+            }}>
+              <div style={{
+                flex: 1, padding: '16px', textAlign: 'center',
+                borderRight: '1px solid #e5e7eb',
+              }}>
+                <div style={{ fontSize: '24px', fontWeight: '700', color: '#059669' }}>
+                  {importResult.created}
+                </div>
+                <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: '500' }}>Created</div>
+              </div>
+              <div style={{ flex: 1, padding: '16px', textAlign: 'center' }}>
+                <div style={{ fontSize: '24px', fontWeight: '700', color: '#d97706' }}>
+                  {importResult.skipped}
+                </div>
+                <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: '500' }}>Skipped</div>
+              </div>
+            </div>
+
+            {/* Error details */}
+            {importResult.errors && importResult.errors.length > 0 && (
+              <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                {importResult.errors.map((err, idx) => (
+                  <div key={idx} style={{
+                    padding: '10px 16px', fontSize: '13px',
+                    borderBottom: idx < importResult.errors.length - 1 ? '1px solid #f3f4f6' : 'none',
+                    display: 'flex', gap: '8px', alignItems: 'baseline',
+                  }}>
+                    <span style={{
+                      background: '#fef2f2', color: '#b91c1c',
+                      padding: '2px 8px', borderRadius: '4px',
+                      fontSize: '11px', fontWeight: '600', flexShrink: 0,
+                    }}>Row {err.row}</span>
+                    <span style={{ fontWeight: '500', color: '#374151' }}>{err.name}</span>
+                    <span style={{ color: '#9ca3af' }}>—</span>
+                    <span style={{ color: '#6b7280' }}>{err.reason}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div style={styles.page}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <h2 style={{ ...styles.pageTitle, marginBottom: 0 }}>{t.members}</h2>
-        <button
-          onClick={onExportExcel}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: '#10b981',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontWeight: '600',
-            fontSize: '14px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-          }}
-        >
-          📥 {t.exportExcel}
-        </button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button
+            onClick={handleOpenImport}
+            style={{
+              padding: '10px 20px',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontWeight: '600',
+              fontSize: '14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+            id="import-excel-btn"
+          >
+            📤 Import Excel
+          </button>
+          <button
+            onClick={onExportExcel}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#10b981',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontWeight: '600',
+              fontSize: '14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
+            📥 {t.exportExcel}
+          </button>
+        </div>
       </div>
 
       <div style={styles.tableControls}>
@@ -198,6 +422,8 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEx
           </tbody>
         </table>
       </div>
+
+      {importModal}
     </div>
   );
 }
