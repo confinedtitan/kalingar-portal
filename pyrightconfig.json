@@ -1,0 +1,9 @@
+{
+    "executionEnvironments": [
+        {
+            "root": "trust-backend",
+            "venv": "venv",
+            "venvPath": "trust-backend"
+        }
+    ]
+}
