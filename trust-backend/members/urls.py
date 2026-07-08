@@ -2,7 +2,8 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter, SimpleRouter
 from .views import (
     MemberViewSet, ChildViewSet, AuthViewSet,
-    AnnouncementViewSet, EventViewSet, MeetingViewSet
+    AnnouncementViewSet, EventViewSet, MeetingViewSet,
+    TaxMasterViewSet, MemberTaxViewSet, TransactionViewSet
 )
 
 # Use SimpleRouter (no API root view) so it doesn't shadow the member list at ^$
@@ -11,6 +12,9 @@ content_router.register(r'announcements', AnnouncementViewSet, basename='announc
 content_router.register(r'events', EventViewSet, basename='event')
 content_router.register(r'meetings', MeetingViewSet, basename='meeting')
 content_router.register(r'children', ChildViewSet, basename='child')
+content_router.register(r'taxes', TaxMasterViewSet, basename='taxmaster')
+content_router.register(r'member-taxes', MemberTaxViewSet, basename='membertax')
+content_router.register(r'transactions', TransactionViewSet, basename='transaction')
 content_router.register(r'auth', AuthViewSet, basename='auth')
 
 # Member router — r'' catch-all must come LAST

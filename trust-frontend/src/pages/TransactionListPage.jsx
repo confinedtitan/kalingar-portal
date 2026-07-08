@@ -1,0 +1,109 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { styles } from '../utils/styles';
+import { accountingAPI } from '../services/api';
+
+export default function TransactionListPage({ isAdmin, t }) {
+  const [transactions, setTransactions] = useState([]);
+  const [heads, setHeads] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState({
+    account_head: '', transaction_type: '', payment_mode: '',
+    from: '', to: '', search: '',
+  });
+
+  const fetchTransactions = useCallback(async () => {
+    try {
+      const params = {};
+      Object.entries(filters).forEach(([k, v]) => { if (v) params[k] = v; });
+      const res = await accountingAPI.getTransactions(params);
+      setTransactions(Array.isArray(res.data) ? res.data : res.data?.results || []);
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
+  }, [filters]);
+
+  useEffect(() => {
+    accountingAPI.getAccountHeads().then(r => setHeads(Array.isArray(r.data) ? r.data : r.data?.results || [])).catch(console.error);
+  }, []);
+  useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
+
+  const handleDelete = async (txn) => {
+    if (!window.confirm(`Soft-delete this transaction of ₹${txn.amount}?`)) return;
+    try { await accountingAPI.deleteTransaction(txn.id); fetchTransactions(); }
+    catch (err) { alert(err.response?.data?.error || 'Failed'); }
+  };
+
+  const downloadReceipt = async (rid) => {
+    try {
+      const res = await accountingAPI.downloadReceipt(rid);
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const a = document.createElement('a'); a.href = url; a.download = `receipt_${rid}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
+    } catch (err) { console.error(err); }
+  };
+
+  return (
+    <div style={styles.page}>
+      <div style={styles.pageHeader}><h2 style={styles.pageTitle}>📋 Transactions</h2></div>
+
+      <div style={{ display:'flex', gap:'12px', marginBottom:'24px', flexWrap:'wrap', alignItems:'flex-end' }}>
+        <input type="text" placeholder="Search donor/payee..." value={filters.search}
+          onChange={e => setFilters({...filters, search: e.target.value})}
+          style={{...styles.searchInput, flex:'1 1 200px', minWidth:'180px'}} />
+        <select value={filters.account_head} onChange={e => setFilters({...filters, account_head: e.target.value})} style={{...styles.filterSelect, minWidth:'160px'}}>
+          <option value="">All Heads</option>
+          {heads.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+        </select>
+        <select value={filters.transaction_type} onChange={e => setFilters({...filters, transaction_type: e.target.value})} style={styles.filterSelect}>
+          <option value="">All Types</option><option value="INCOME">Income</option><option value="EXPENSE">Expense</option>
+        </select>
+        <select value={filters.payment_mode} onChange={e => setFilters({...filters, payment_mode: e.target.value})} style={styles.filterSelect}>
+          <option value="">All Modes</option><option value="Cash">Cash</option><option value="Bank Transfer">Bank Transfer</option>
+          <option value="UPI">UPI</option><option value="Cheque">Cheque</option>
+        </select>
+        <div style={{ display:'flex', gap:'8px', alignItems:'center' }}>
+          <input type="date" value={filters.from} onChange={e => setFilters({...filters, from: e.target.value})} style={{...styles.formInput, padding:'8px 12px', fontSize:'13px'}} />
+          <span style={{color:'#9ca3af'}}>→</span>
+          <input type="date" value={filters.to} onChange={e => setFilters({...filters, to: e.target.value})} style={{...styles.formInput, padding:'8px 12px', fontSize:'13px'}} />
+        </div>
+      </div>
+
+      {loading ? <p style={{textAlign:'center',color:'#6b7280',padding:'60px'}}>Loading...</p> : (
+        <div style={styles.tableContainer}>
+          <table style={{...styles.table, minWidth:'1100px'}}>
+            <thead><tr>
+              <th style={styles.th}>Date</th><th style={styles.th}>Account Head</th><th style={styles.th}>Type</th>
+              <th style={styles.th}>Amount</th><th style={styles.th}>Mode</th><th style={styles.th}>Donor/Payee</th>
+              <th style={styles.th}>Receipt #</th><th style={styles.th}>Entered By</th><th style={styles.th}>Actions</th>
+            </tr></thead>
+            <tbody>
+              {transactions.map(txn => (
+                <tr key={txn.id} style={styles.tr}>
+                  <td style={{...styles.td, fontSize:'13px', whiteSpace:'nowrap'}}>{txn.transaction_date}</td>
+                  <td style={{...styles.td, fontWeight:'600'}}>{txn.account_head_name}</td>
+                  <td style={styles.td}>
+                    <span style={{ padding:'2px 10px', borderRadius:'12px', fontSize:'11px', fontWeight:'700',
+                      background: txn.transaction_type==='INCOME' ? '#d1fae5':'#fee2e2',
+                      color: txn.transaction_type==='INCOME' ? '#065f46':'#991b1b' }}>{txn.transaction_type}</span>
+                  </td>
+                  <td style={{...styles.td, fontWeight:'700', color: txn.transaction_type==='INCOME'?'#059669':'#dc2626'}}>
+                    ₹{Number(txn.amount).toLocaleString()}</td>
+                  <td style={{...styles.td, fontSize:'13px'}}>{txn.payment_mode}</td>
+                  <td style={styles.td}>{txn.transaction_type==='INCOME' ? (txn.donor_name||txn.member_name||'—') : (txn.paid_to||'—')}</td>
+                  <td style={{...styles.td, fontSize:'12px', color:'#4338ca', fontWeight:'600'}}>{txn.receipt_number||'—'}</td>
+                  <td style={{...styles.td, fontSize:'12px'}}>{txn.entered_by_name||'—'}</td>
+                  <td style={styles.td}>
+                    <div style={{display:'flex', gap:'4px', flexWrap:'wrap'}}>
+                      {txn.receipt_id && <button onClick={()=>downloadReceipt(txn.receipt_id)} style={{...styles.actionButton, background:'#4338ca', fontSize:'11px', padding:'3px 8px'}}>📄 Receipt</button>}
+                      <button onClick={()=>handleDelete(txn)} style={{...styles.actionButton, background:'#ef4444', fontSize:'11px', padding:'3px 8px'}}>🗑️</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {transactions.length===0 && <tr><td colSpan={9} style={{...styles.td, textAlign:'center', color:'#9ca3af', padding:'40px'}}>No transactions found.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}

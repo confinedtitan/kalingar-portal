@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { styles } from '../utils/styles';
 import { useTamilInput } from '../utils/useTamilInput';
-import { memberAPI } from '../services/api';
+import { memberAPI, accountingAPI } from '../services/api';
 
 export default function MembersPage({ members: rawMembers, t, onViewMember, onExportExcel, onResetPassword, onImportSuccess }) {
   const members = Array.isArray(rawMembers) ? rawMembers : [];
@@ -16,11 +16,18 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEx
   const [importResult, setImportResult] = useState(null);
   const fileInputRef = useRef(null);
 
+  // Staff management state
+  const [staffList, setStaffList] = useState([]);
+  const [showStaffForm, setShowStaffForm] = useState(false);
+  const [staffForm, setStaffForm] = useState({ name: '', phone: '', password: '' });
+
   const setSearchValue = useCallback((v) => setSearchTerm(v), []);
   const searchTamilProps = useTamilInput(searchTerm, setSearchValue);
 
   const filteredMembers = members.filter(m => {
-    const matchesSearch = m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch = m.name.toLowerCase().includes(searchLower) ||
+      (m.name_ta && m.name_ta.includes(searchTerm)) ||
       m.phone.includes(searchTerm);
     const due = m.amount_due ?? m.amountDue ?? 0;
     const matchesFilter = filterStatus === 'all' ||
@@ -328,9 +335,19 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEx
                     <td style={{ ...styles.td, fontWeight: '700', color: '#4338ca', fontSize: '12px', letterSpacing: '0.5px' }}>
                       {member.member_id || '-'}
                     </td>
-                    <td style={styles.td}>{member.name}</td>
+                    <td style={styles.td}>
+                      <div>{member.name}</div>
+                      {member.name_ta && (
+                        <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{member.name_ta}</div>
+                      )}
+                    </td>
                     <td style={styles.td}>{member.phone}</td>
-                    <td style={styles.td}>{fatherName}</td>
+                    <td style={styles.td}>
+                      <div>{fatherName}</div>
+                      {(member.father_name_ta || member.fatherNameTa) && (
+                        <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{member.father_name_ta || member.fatherNameTa}</div>
+                      )}
+                    </td>
                     <td style={styles.td}>₹{Number(annualTax).toLocaleString()}</td>
                     <td style={styles.td}>₹{Number(amountPaid).toLocaleString()}</td>
                     <td style={styles.td}>₹{Number(amountDue).toLocaleString()}</td>
@@ -376,12 +393,18 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEx
                             <div>
                               <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', marginBottom: '2px' }}>{t.motherName}</div>
                               <div style={{ fontSize: '14px', color: '#1e293b' }}>{motherName}</div>
+                              {(member.mother_name_ta || member.motherNameTa) && (
+                                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{member.mother_name_ta || member.motherNameTa}</div>
+                              )}
                             </div>
                           )}
                           {spouseName && (
                             <div>
                               <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', marginBottom: '2px' }}>{t.spouseName}</div>
                               <div style={{ fontSize: '14px', color: '#1e293b' }}>{spouseName}</div>
+                              {(member.spouse_name_ta || member.spouseNameTa) && (
+                                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{member.spouse_name_ta || member.spouseNameTa}</div>
+                              )}
                             </div>
                           )}
                           {children.length > 0 && (
@@ -400,7 +423,7 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEx
                                     gap: '6px',
                                   }}>
                                     <span>{child.gender === 'Male' ? '👦' : '👧'}</span>
-                                    <span style={{ fontWeight: '500' }}>{child.name}</span>
+                                    <span style={{ fontWeight: '500' }}>{child.name}{child.name_ta ? ` / ${child.name_ta}` : ''}</span>
                                     <span style={{ color: '#94a3b8', fontSize: '12px' }}>{child.date_of_birth ?? child.dob}</span>
                                   </div>
                                 ))}
@@ -423,7 +446,134 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEx
         </table>
       </div>
 
+      {/* ── Accountant Staff Management ── */}
+      <div style={{ marginTop: '40px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h3 style={{ ...styles.pageTitle, fontSize: '22px' }}>👤 Accountant Accounts</h3>
+          <button
+            onClick={() => { setShowStaffForm(true); setStaffForm({ name: '', phone: '', password: '' }); }}
+            style={{ ...styles.exportButton, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+          >➕ Add Accountant</button>
+        </div>
+
+        <StaffTable staffList={staffList} setStaffList={setStaffList} />
+
+        {showStaffForm && (
+          <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
+            <div style={{ background:'white', borderRadius:'16px', padding:'32px', width:'100%', maxWidth:'440px', boxShadow:'0 25px 60px rgba(0,0,0,0.3)' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px' }}>
+                <h3 style={{ margin:0, fontSize:'18px', fontWeight:'700' }}>New Accountant</h3>
+                <button onClick={()=>setShowStaffForm(false)} style={{ background:'none', border:'none', fontSize:'24px', cursor:'pointer', color:'#6b7280' }}>✕</button>
+              </div>
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                try {
+                  await accountingAPI.createStaff(staffForm);
+                  setShowStaffForm(false);
+                  // trigger re-fetch
+                  setStaffList([]);
+                } catch (err) {
+                  const msg = err.response?.data ? Object.values(err.response.data).flat().join(', ') : 'Failed';
+                  alert(msg);
+                }
+              }} style={{ display:'flex', flexDirection:'column', gap:'16px' }}>
+                <div style={styles.formGroup}>
+                  <label style={styles.formLabel}>Name *</label>
+                  <input type="text" required value={staffForm.name} onChange={e=>setStaffForm({...staffForm,name:e.target.value})} style={styles.formInput} />
+                </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.formLabel}>Phone (10 digits) *</label>
+                  <input type="text" required value={staffForm.phone} onChange={e=>setStaffForm({...staffForm,phone:e.target.value.replace(/\D/g,'').slice(0,10)})} style={styles.formInput} maxLength={10} />
+                </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.formLabel}>Password *</label>
+                  <input type="password" required minLength={8} value={staffForm.password} onChange={e=>setStaffForm({...staffForm,password:e.target.value})} style={styles.formInput} />
+                </div>
+                <button type="submit" style={styles.submitButton}>Create Accountant</button>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+
       {importModal}
+    </div>
+  );
+}
+
+function StaffTable({ staffList, setStaffList }) {
+  const [loaded, setLoaded] = React.useState(false);
+
+  React.useEffect(() => {
+    if (staffList.length === 0 && !loaded) {
+      accountingAPI.getStaff()
+        .then(r => {
+          const data = Array.isArray(r.data) ? r.data : r.data?.results || [];
+          setStaffList(data);
+          setLoaded(true);
+        })
+        .catch(console.error);
+    }
+  }, [staffList, loaded, setStaffList]);
+
+  // Re-fetch when staffList is cleared (after create)
+  React.useEffect(() => {
+    if (staffList.length === 0 && loaded) {
+      setLoaded(false);
+    }
+  }, [staffList, loaded]);
+
+  const toggleActive = async (staff) => {
+    try {
+      if (staff.is_active) {
+        await accountingAPI.deactivateStaff(staff.id);
+      } else {
+        await accountingAPI.activateStaff(staff.id);
+      }
+      setStaffList([]);
+    } catch (err) {
+      alert('Failed to update staff status.');
+    }
+  };
+
+  if (staffList.length === 0) {
+    return <div style={{ textAlign:'center', color:'#9ca3af', padding:'24px', background:'white', borderRadius:'12px' }}>No accountant accounts yet.</div>;
+  }
+
+  return (
+    <div style={styles.tableContainer}>
+      <table style={styles.table}>
+        <thead><tr>
+          <th style={styles.th}>Name</th>
+          <th style={styles.th}>Phone</th>
+          <th style={styles.th}>Role</th>
+          <th style={styles.th}>Status</th>
+          <th style={styles.th}>Actions</th>
+        </tr></thead>
+        <tbody>
+          {staffList.map(s => (
+            <tr key={s.id} style={styles.tr}>
+              <td style={{...styles.td, fontWeight:'600'}}>{s.name}</td>
+              <td style={styles.td}>{s.phone}</td>
+              <td style={styles.td}>{s.role}</td>
+              <td style={styles.td}>
+                <span style={s.is_active ? styles.statusPaid : styles.statusPending}>
+                  {s.is_active ? 'Active' : 'Inactive'}
+                </span>
+              </td>
+              <td style={styles.td}>
+                <button onClick={() => toggleActive(s)} style={{
+                  ...styles.actionButton,
+                  background: s.is_active ? '#ef4444' : '#10b981',
+                  fontSize:'12px', padding:'4px 12px',
+                }}>
+                  {s.is_active ? '🚫 Deactivate' : '✅ Activate'}
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

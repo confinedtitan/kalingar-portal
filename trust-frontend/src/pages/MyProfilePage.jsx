@@ -53,6 +53,11 @@ export default function MyProfilePage({ member, t, onChangePassword }) {
           <div style={styles.profileAvatar}>{member.name.charAt(0)}</div>
           <div>
             <h3 style={styles.profileName}>{member.name}</h3>
+            {(member.name_ta || member.nameTa) && (
+              <div style={{ fontSize: '14px', color: '#6b7280', marginTop: '2px' }}>
+                {member.name_ta || member.nameTa}
+              </div>
+            )}
             {(member.member_id || member.memberId) && (
               <span style={{
                 display: 'inline-flex',
@@ -86,9 +91,15 @@ export default function MyProfilePage({ member, t, onChangePassword }) {
               <div>{member.date_of_birth ?? member.dob}</div>
             </div>
             <div style={styles.profileField}>
-              <label>{t.address}</label>
+              <label>{t.addressEnglish || t.address}</label>
               <div>{member.address}</div>
             </div>
+            {(member.address_ta || member.addressTa) && (
+              <div style={styles.profileField}>
+                <label>{t.addressTamil || 'Address (Tamil)'}</label>
+                <div>{member.address_ta || member.addressTa}</div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -96,19 +107,37 @@ export default function MyProfilePage({ member, t, onChangePassword }) {
           <h4 style={styles.profileSectionTitle}>{t.familyDetails}</h4>
           <div style={styles.profileGrid}>
             <div style={styles.profileField}>
-              <label>{t.fatherName}</label>
+              <label>{t.fatherNameEnglish || t.fatherName}</label>
               <div>{member.fatherName || member.father_name || '-'}</div>
             </div>
+            {(member.father_name_ta || member.fatherNameTa) && (
+              <div style={styles.profileField}>
+                <label>{t.fatherNameTamil || "Father's Name (Tamil)"}</label>
+                <div>{member.father_name_ta || member.fatherNameTa}</div>
+              </div>
+            )}
             {(member.motherName || member.mother_name) && (
               <div style={styles.profileField}>
-                <label>{t.motherName}</label>
+                <label>{t.motherNameEnglish || t.motherName}</label>
                 <div>{member.motherName || member.mother_name}</div>
+              </div>
+            )}
+            {(member.mother_name_ta || member.motherNameTa) && (
+              <div style={styles.profileField}>
+                <label>{t.motherNameTamil || "Mother's Name (Tamil)"}</label>
+                <div>{member.mother_name_ta || member.motherNameTa}</div>
               </div>
             )}
             {(member.spouseName || member.spouse_name) && (
               <div style={styles.profileField}>
-                <label>{t.spouseName}</label>
+                <label>{t.spouseNameEnglish || t.spouseName}</label>
                 <div>{member.spouseName || member.spouse_name}</div>
+              </div>
+            )}
+            {(member.spouse_name_ta || member.spouseNameTa) && (
+              <div style={styles.profileField}>
+                <label>{t.spouseNameTamil || "Spouse's Name (Tamil)"}</label>
+                <div>{member.spouse_name_ta || member.spouseNameTa}</div>
               </div>
             )}
           </div>
@@ -118,7 +147,7 @@ export default function MyProfilePage({ member, t, onChangePassword }) {
               <strong>{t.children}:</strong>
               {member.children.map((child, index) => (
                 <div key={index} style={styles.profileChildItem}>
-                  {child.name} ({child.gender}) - {child.date_of_birth ?? child.dob}
+                  {child.name} ({child.gender}) - {child.date_of_birth ?? child.dob} - {child.marital_status || 'Unmarried'}
                 </div>
               ))}
             </div>
@@ -128,20 +157,81 @@ export default function MyProfilePage({ member, t, onChangePassword }) {
         <div style={styles.profileSection}>
           <h4 style={styles.profileSectionTitle}>{t.paymentDetails}</h4>
           <div style={styles.paymentSummary}>
-            <div style={styles.paymentSummaryItem}>
-              <span>{t.annualTax}</span>
-              <strong>₹{Number(member.annual_tax ?? member.annualTax ?? 0).toLocaleString()}</strong>
-            </div>
-            <div style={styles.paymentSummaryItem}>
-              <span>{t.amountPaid}</span>
-              <strong style={{ color: '#10b981' }}>₹{Number(member.amount_paid ?? member.amountPaid ?? 0).toLocaleString()}</strong>
-            </div>
-            <div style={styles.paymentSummaryItem}>
-              <span>{t.amountDue}</span>
-              <strong style={{ color: '#ef4444' }}>₹{Number(member.amount_due ?? member.amountDue ?? 0).toLocaleString()}</strong>
-            </div>
+            {member.taxes && member.taxes.length > 0 ? (
+              <div style={{ width: '100%' }}>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                    <thead>
+                      <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                        <th style={{ padding: '8px', textAlign: 'left' }}>Tax Name</th>
+                        <th style={{ padding: '8px', textAlign: 'left' }}>Tax Count</th>
+                        <th style={{ padding: '8px', textAlign: 'left' }}>Total</th>
+                        <th style={{ padding: '8px', textAlign: 'left' }}>Paid</th>
+                        <th style={{ padding: '8px', textAlign: 'left' }}>Due</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {member.taxes.map(tax => (
+                        <tr key={tax.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '8px' }}>{tax.tax_name}</td>
+                          <td style={{ padding: '8px' }}>{tax.tax_count}</td>
+                          <td style={{ padding: '8px' }}>₹{tax.total_tax}</td>
+                          <td style={{ padding: '8px', color: '#10b981' }}>₹{tax.amount_paid}</td>
+                          <td style={{ padding: '8px', color: '#ef4444' }}>₹{tax.amount_due}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div style={styles.paymentSummaryItem}>
+                  <span>{t.annualTax}</span>
+                  <strong>₹{Number(member.annual_tax ?? member.annualTax ?? 0).toLocaleString()}</strong>
+                </div>
+                <div style={styles.paymentSummaryItem}>
+                  <span>{t.amountPaid}</span>
+                  <strong style={{ color: '#10b981' }}>₹{Number(member.amount_paid ?? member.amountPaid ?? 0).toLocaleString()}</strong>
+                </div>
+                <div style={styles.paymentSummaryItem}>
+                  <span>{t.amountDue}</span>
+                  <strong style={{ color: '#ef4444' }}>₹{Number(member.amount_due ?? member.amountDue ?? 0).toLocaleString()}</strong>
+                </div>
+              </>
+            )}
           </div>
         </div>
+
+        {member.transactions && member.transactions.length > 0 && (
+          <div style={styles.profileSection}>
+            <h4 style={styles.profileSectionTitle}>Transaction History</h4>
+            <div style={{ overflowX: 'auto', marginTop: '10px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                    <th style={{ padding: '8px', textAlign: 'left' }}>Receipt</th>
+                    <th style={{ padding: '8px', textAlign: 'left' }}>Date</th>
+                    <th style={{ padding: '8px', textAlign: 'left' }}>Type</th>
+                    <th style={{ padding: '8px', textAlign: 'left' }}>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {member.transactions.map(txn => (
+                    <tr key={txn.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '8px' }}>{txn.receipt_number}</td>
+                      <td style={{ padding: '8px' }}>{new Date(txn.payment_date).toLocaleDateString()}</td>
+                      <td style={{ padding: '8px' }}>{txn.transaction_type}</td>
+                      <td style={{ padding: '8px', color: txn.transaction_type === 'Payment' ? '#10b981' : '#6b7280' }}>
+                        ₹{txn.amount}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* Change Password Section */}
         <div style={styles.profileSection}>

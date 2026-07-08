@@ -5,46 +5,56 @@ import { useTamilInput } from '../utils/useTamilInput';
 export default function AddMemberPage({ t, onAddMember }) {
   const [formData, setFormData] = useState({
     name: '',
+    nameTa: '',
     phone: '',
     password: '',
     dob: '',
     address: '',
+    addressTa: '',
     fatherName: '',
+    fatherNameTa: '',
     motherName: '',
+    motherNameTa: '',
     spouseName: '',
+    spouseNameTa: '',
     annualTax: 20000,
     children: []
   });
 
-  const [childForm, setChildForm] = useState({ name: '', dob: '', gender: 'Male' });
+  const [childForm, setChildForm] = useState({ name: '', nameTa: '', dob: '', gender: 'Male', marital_status: 'Unmarried' });
 
   // Tamil input hooks — each returns { onChange, onKeyDown } to spread onto the input
-  const setName = useCallback((v) => setFormData(prev => ({ ...prev, name: v })), []);
-  const setFatherName = useCallback((v) => setFormData(prev => ({ ...prev, fatherName: v })), []);
-  const setMotherName = useCallback((v) => setFormData(prev => ({ ...prev, motherName: v })), []);
-  const setSpouseName = useCallback((v) => setFormData(prev => ({ ...prev, spouseName: v })), []);
-  const setAddress = useCallback((v) => setFormData(prev => ({ ...prev, address: v })), []);
-  const setChildName = useCallback((v) => setChildForm(prev => ({ ...prev, name: v })), []);
+  const setNameTa = useCallback((v) => setFormData(prev => ({ ...prev, nameTa: v })), []);
+  const setFatherNameTa = useCallback((v) => setFormData(prev => ({ ...prev, fatherNameTa: v })), []);
+  const setMotherNameTa = useCallback((v) => setFormData(prev => ({ ...prev, motherNameTa: v })), []);
+  const setSpouseNameTa = useCallback((v) => setFormData(prev => ({ ...prev, spouseNameTa: v })), []);
+  const setAddressTa = useCallback((v) => setFormData(prev => ({ ...prev, addressTa: v })), []);
+  const setChildNameTa = useCallback((v) => setChildForm(prev => ({ ...prev, nameTa: v })), []);
 
-  const nameProps = useTamilInput(formData.name, setName);
-  const fatherProps = useTamilInput(formData.fatherName, setFatherName);
-  const motherProps = useTamilInput(formData.motherName, setMotherName);
-  const spouseProps = useTamilInput(formData.spouseName, setSpouseName);
-  const addressProps = useTamilInput(formData.address, setAddress);
-  const childNameProps = useTamilInput(childForm.name, setChildName);
+  const nameTaProps = useTamilInput(formData.nameTa, setNameTa);
+  const fatherTaProps = useTamilInput(formData.fatherNameTa, setFatherNameTa);
+  const motherTaProps = useTamilInput(formData.motherNameTa, setMotherNameTa);
+  const spouseTaProps = useTamilInput(formData.spouseNameTa, setSpouseNameTa);
+  const addressTaProps = useTamilInput(formData.addressTa, setAddressTa);
+  const childNameTaProps = useTamilInput(childForm.nameTa, setChildNameTa);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     onAddMember(formData);
     setFormData({
       name: '',
+      nameTa: '',
       phone: '',
       password: '',
       dob: '',
       address: '',
+      addressTa: '',
       fatherName: '',
+      fatherNameTa: '',
       motherName: '',
+      motherNameTa: '',
       spouseName: '',
+      spouseNameTa: '',
       annualTax: 20000,
       children: []
     });
@@ -56,9 +66,24 @@ export default function AddMemberPage({ t, onAddMember }) {
         ...formData,
         children: [...formData.children, childForm]
       });
-      setChildForm({ name: '', dob: '', gender: 'Male' });
+      setChildForm({ name: '', nameTa: '', dob: '', gender: 'Male', marital_status: 'Unmarried' });
     }
   };
+
+  // Style for the paired language label
+  const langTag = (text) => (
+    <span style={{
+      display: 'inline-block',
+      fontSize: '10px',
+      fontWeight: '600',
+      padding: '2px 6px',
+      borderRadius: '4px',
+      marginLeft: '6px',
+      verticalAlign: 'middle',
+      background: text === 'EN' ? '#dbeafe' : '#fef3c7',
+      color: text === 'EN' ? '#1d4ed8' : '#92400e',
+    }}>{text}</span>
+  );
 
   return (
     <div style={styles.page}>
@@ -66,13 +91,26 @@ export default function AddMemberPage({ t, onAddMember }) {
 
       <form onSubmit={handleSubmit} style={styles.form}>
         <div style={styles.formGrid}>
+          {/* Name (English) */}
           <div style={styles.formGroup}>
-            <label style={styles.formLabel}>{t.memberName} *</label>
+            <label style={styles.formLabel}>{t.nameEnglish} {langTag('EN')} *</label>
             <input
               type="text"
               required
               value={formData.name}
-              {...nameProps}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              style={styles.formInput}
+              placeholder="Enter name in English"
+            />
+          </div>
+
+          {/* Name (Tamil) */}
+          <div style={styles.formGroup}>
+            <label style={styles.formLabel}>{t.nameTamil} {langTag('தமிழ்')}</label>
+            <input
+              type="text"
+              value={formData.nameTa}
+              {...nameTaProps}
               style={styles.formInput}
             />
           </div>
@@ -117,33 +155,72 @@ export default function AddMemberPage({ t, onAddMember }) {
             />
           </div>
 
+          {/* Father Name (English) */}
           <div style={styles.formGroup}>
-            <label style={styles.formLabel}>{t.fatherName} *</label>
+            <label style={styles.formLabel}>{t.fatherNameEnglish} {langTag('EN')} *</label>
             <input
               type="text"
               required
               value={formData.fatherName}
-              {...fatherProps}
+              onChange={(e) => setFormData({ ...formData, fatherName: e.target.value })}
+              style={styles.formInput}
+              placeholder="Enter father's name in English"
+            />
+          </div>
+
+          {/* Father Name (Tamil) */}
+          <div style={styles.formGroup}>
+            <label style={styles.formLabel}>{t.fatherNameTamil} {langTag('தமிழ்')}</label>
+            <input
+              type="text"
+              value={formData.fatherNameTa}
+              {...fatherTaProps}
               style={styles.formInput}
             />
           </div>
 
+          {/* Mother Name (English) */}
           <div style={styles.formGroup}>
-            <label style={styles.formLabel}>{t.motherName}</label>
+            <label style={styles.formLabel}>{t.motherNameEnglish} {langTag('EN')}</label>
             <input
               type="text"
               value={formData.motherName}
-              {...motherProps}
+              onChange={(e) => setFormData({ ...formData, motherName: e.target.value })}
+              style={styles.formInput}
+              placeholder="Enter mother's name in English"
+            />
+          </div>
+
+          {/* Mother Name (Tamil) */}
+          <div style={styles.formGroup}>
+            <label style={styles.formLabel}>{t.motherNameTamil} {langTag('தமிழ்')}</label>
+            <input
+              type="text"
+              value={formData.motherNameTa}
+              {...motherTaProps}
               style={styles.formInput}
             />
           </div>
 
+          {/* Spouse Name (English) */}
           <div style={styles.formGroup}>
-            <label style={styles.formLabel}>{t.spouseName}</label>
+            <label style={styles.formLabel}>{t.spouseNameEnglish} {langTag('EN')}</label>
             <input
               type="text"
               value={formData.spouseName}
-              {...spouseProps}
+              onChange={(e) => setFormData({ ...formData, spouseName: e.target.value })}
+              style={styles.formInput}
+              placeholder="Enter spouse's name in English"
+            />
+          </div>
+
+          {/* Spouse Name (Tamil) */}
+          <div style={styles.formGroup}>
+            <label style={styles.formLabel}>{t.spouseNameTamil} {langTag('தமிழ்')}</label>
+            <input
+              type="text"
+              value={formData.spouseNameTa}
+              {...spouseTaProps}
               style={styles.formInput}
             />
           </div>
@@ -160,12 +237,25 @@ export default function AddMemberPage({ t, onAddMember }) {
           </div>
         </div>
 
+        {/* Address (English) */}
         <div style={styles.formGroup}>
-          <label style={styles.formLabel}>{t.address} *</label>
+          <label style={styles.formLabel}>{t.addressEnglish} {langTag('EN')} *</label>
           <textarea
             required
             value={formData.address}
-            {...addressProps}
+            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+            style={styles.formTextarea}
+            rows="3"
+            placeholder="Enter address in English"
+          />
+        </div>
+
+        {/* Address (Tamil) */}
+        <div style={styles.formGroup}>
+          <label style={styles.formLabel}>{t.addressTamil} {langTag('தமிழ்')}</label>
+          <textarea
+            value={formData.addressTa}
+            {...addressTaProps}
             style={styles.formTextarea}
             rows="3"
           />
@@ -177,9 +267,16 @@ export default function AddMemberPage({ t, onAddMember }) {
           <div style={styles.childFormGrid}>
             <input
               type="text"
-              placeholder={t.childName}
+              placeholder={t.childNameEnglish || t.childName}
               value={childForm.name}
-              {...childNameProps}
+              onChange={(e) => setChildForm({ ...childForm, name: e.target.value })}
+              style={styles.formInput}
+            />
+            <input
+              type="text"
+              placeholder={t.childNameTamil || 'Child Name (Tamil)'}
+              value={childForm.nameTa}
+              {...childNameTaProps}
               style={styles.formInput}
             />
             <input
@@ -197,6 +294,14 @@ export default function AddMemberPage({ t, onAddMember }) {
               <option value="Male">{t.male}</option>
               <option value="Female">{t.female}</option>
             </select>
+            <select
+              value={childForm.marital_status}
+              onChange={(e) => setChildForm({ ...childForm, marital_status: e.target.value })}
+              style={styles.formInput}
+            >
+              <option value="Unmarried">Unmarried</option>
+              <option value="Married">Married</option>
+            </select>
             <button type="button" onClick={addChild} style={styles.addChildButton}>
               {t.addChild}
             </button>
@@ -206,7 +311,7 @@ export default function AddMemberPage({ t, onAddMember }) {
             <div style={styles.childrenList}>
               {formData.children.map((child, index) => (
                 <div key={index} style={styles.childItem}>
-                  <span>{child.name} - {child.dob} - {child.gender}</span>
+                  <span>{child.name}{child.nameTa ? ` / ${child.nameTa}` : ''} - {child.dob} - {child.gender} - {child.marital_status}</span>
                   <button
                     type="button"
                     onClick={() => setFormData({

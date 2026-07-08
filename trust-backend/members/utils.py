@@ -85,7 +85,7 @@ def parse_member_row(row):
         8: Balance due (ignored — auto-calculated by model)
         9: Phone number (integer with 91 prefix)
 
-    Returns a dict with keys: name, phone, city, annual_tax, amount_paid
+    Returns a dict with keys: name, name_ta, phone, city, annual_tax, amount_paid
     or None if the row should be skipped.
     """
     # Ensure we have enough columns
@@ -109,6 +109,7 @@ def parse_member_row(row):
 
     return {
         'name': name,
+        'name_ta': name,       # Excel data is Tamil — store in both fields
         'phone': phone,
         'city': city,
         'annual_tax': annual_tax,
@@ -143,10 +144,12 @@ def create_member_from_dict(data):
             member = Member(
                 user=user,
                 name=name,
+                name_ta=data.get('name_ta', ''),
                 phone=phone,
                 # Required fields that aren't in the Excel — use sensible defaults
                 date_of_birth='2000-01-01',
                 address=data.get('city', ''),
+                address_ta=data.get('city', ''),  # store city in Tamil address too
                 father_name='',
                 annual_tax=Decimal(str(data.get('annual_tax', 0))),
                 amount_paid=data.get('amount_paid', Decimal('0')),

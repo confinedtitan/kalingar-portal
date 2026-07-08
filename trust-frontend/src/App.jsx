@@ -13,18 +13,25 @@ import AddMemberPage from './pages/AddMemberPage';
 import AllPaymentsPage from './pages/AllPaymentsPage';
 import FamilyTreePage from './pages/FamilyTreePage';
 import ContentManagementPage from './pages/ContentManagementPage';
+import TaxManagementPage from './pages/TaxManagementPage';
 import MyProfilePage from './pages/MyProfilePage';
 import PaymentPage from './pages/PaymentPage';
+import AccountantDashboardPage from './pages/AccountantDashboardPage';
+import AccountHeadsPage from './pages/AccountHeadsPage';
+import TransactionFormPage from './pages/TransactionFormPage';
+import TransactionListPage from './pages/TransactionListPage';
+import MyDonationsPage from './pages/MyDonationsPage';
 import MemberDetailsModal from './components/MemberDetailsModal';
 import { translations } from './data/translations';
 import { styles } from './utils/styles';
-import { authAPI, memberAPI, paymentAPI } from './services/api';
+import api, { authAPI, memberAPI, paymentAPI } from './services/api';
 
 export default function App() {
   const [language, setLanguage] = useState('en');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isAccountant, setIsAccountant] = useState(false);
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [members, setMembers] = useState([]);
   const [payments, setPayments] = useState([]);
@@ -87,14 +94,28 @@ export default function App() {
         try {
           // Try fetching members list — if token is valid this succeeds
           await memberAPI.getAll();
-          setCurrentUser(JSON.parse(savedUser));
+          
+          if (savedIsAdmin !== 'true') {
+            try {
+              const memberResponse = await memberAPI.getMe();
+              setCurrentUser(memberResponse.data);
+              localStorage.setItem('current_user', JSON.stringify(memberResponse.data));
+            } catch {
+              setCurrentUser(JSON.parse(savedUser));
+            }
+          } else {
+             setCurrentUser(JSON.parse(savedUser));
+          }
+          
           setIsAdmin(savedIsAdmin === 'true');
+          setIsAccountant(localStorage.getItem('is_accountant') === 'true');
           setIsLoggedIn(true);
         } catch (error) {
           // Token is invalid — clear everything
           console.log('Stored token is invalid, clearing session');
           localStorage.removeItem('auth_token');
           localStorage.removeItem('current_user');
+          localStorage.removeItem('is_accountant');
           localStorage.removeItem('is_admin');
         }
       };
@@ -111,6 +132,7 @@ export default function App() {
       // Store token
       localStorage.setItem('auth_token', data.token);
       localStorage.setItem('is_admin', data.is_admin);
+      localStorage.setItem('is_accountant', data.role === 'ACCOUNTANT');
 
       // Check if password reset is required
       if (data.password_reset_required && !data.is_admin) {
@@ -118,8 +140,16 @@ export default function App() {
         setShowPasswordChange(true);
       }
 
-      if (data.is_admin) {
+      if (data.role === 'ACCOUNTANT') {
+        setIsAccountant(true);
+        setIsAdmin(false);
+        const user = { name: data.name, role: 'ACCOUNTANT', staff_id: data.staff_id };
+        setCurrentUser(user);
+        localStorage.setItem('current_user', JSON.stringify(user));
+        setCurrentPage('accountantDashboard');
+      } else if (data.is_admin) {
         setIsAdmin(true);
+        setIsAccountant(false);
         const user = { name: data.name || 'Admin', role: 'Administrator' };
         setCurrentUser(user);
         localStorage.setItem('current_user', JSON.stringify(user));
@@ -169,9 +199,11 @@ export default function App() {
       localStorage.removeItem('auth_token');
       localStorage.removeItem('current_user');
       localStorage.removeItem('is_admin');
+      localStorage.removeItem('is_accountant');
       setIsLoggedIn(false);
       setCurrentUser(null);
       setIsAdmin(false);
+      setIsAccountant(false);
       setCurrentPage('dashboard');
       setMembers([]);
       setPayments([]);
@@ -204,17 +236,23 @@ export default function App() {
       // Map camelCase form fields to snake_case Django fields
       const apiData = {
         name: memberData.name,
+        name_ta: memberData.nameTa || '',
         phone: memberData.phone,
 
         date_of_birth: memberData.dob,
         address: memberData.address,
+        address_ta: memberData.addressTa || '',
         father_name: memberData.fatherName,
+        father_name_ta: memberData.fatherNameTa || '',
         mother_name: memberData.motherName || '',
+        mother_name_ta: memberData.motherNameTa || '',
         spouse_name: memberData.spouseName || '',
+        spouse_name_ta: memberData.spouseNameTa || '',
         annual_tax: memberData.annualTax,
         password: memberData.password || memberData.phone,
         children: (memberData.children || []).map(child => ({
           name: child.name,
+          name_ta: child.nameTa || '',
           date_of_birth: child.dob,
           gender: child.gender,
         })),
@@ -234,13 +272,22 @@ export default function App() {
     }
   };
 
-  const makePaymentHandler = async (memberId, amount) => {
+  const makePaymentHandler = async (memberId, amount, taxId = null) => {
     try {
-      await paymentAPI.create({
-        member: memberId,
-        amount: amount,
-        payment_method: 'UPI',
-      });
+      if (taxId) {
+        await api.post('/members/transactions/', {
+          member: memberId,
+          member_tax: taxId,
+          amount: amount,
+          transaction_type: 'Payment',
+        });
+      } else {
+        await paymentAPI.create({
+          member: memberId,
+          amount: amount,
+          payment_method: 'UPI',
+        });
+      }
       showNotification(t.paymentSuccess);
 
       // Refresh data
@@ -306,6 +353,7 @@ export default function App() {
           {showSidebar && (
             <Sidebar
               isAdmin={isAdmin}
+              isAccountant={isAccountant}
               currentPage={currentPage}
               setCurrentPage={setCurrentPage}
               t={t}
@@ -362,7 +410,31 @@ export default function App() {
               />
             )}
 
-            {currentPage === 'myProfile' && !isAdmin && (
+            {currentPage === 'taxManagement' && isAdmin && (
+              <TaxManagementPage
+                t={t}
+              />
+            )}
+
+            {/* ── Accountant Pages (also accessible by Admin) ── */}
+            {currentPage === 'accountantDashboard' && isAccountant && (
+              <AccountantDashboardPage t={t} />
+            )}
+
+            {currentPage === 'accountHeads' && (isAdmin || isAccountant) && (
+              <AccountHeadsPage isAdmin={isAdmin} t={t} />
+            )}
+
+            {currentPage === 'addTransaction' && (isAdmin || isAccountant) && (
+              <TransactionFormPage t={t} />
+            )}
+
+            {currentPage === 'transactionList' && (isAdmin || isAccountant) && (
+              <TransactionListPage isAdmin={isAdmin} t={t} />
+            )}
+
+            {/* ── Member Pages ── */}
+            {currentPage === 'myProfile' && !isAdmin && !isAccountant && (
               <MyProfilePage
                 member={currentUser}
                 t={t}
@@ -373,11 +445,15 @@ export default function App() {
               />
             )}
 
-            {currentPage === 'payment' && !isAdmin && (
+            {currentPage === 'myDonations' && !isAdmin && !isAccountant && (
+              <MyDonationsPage member={currentUser} t={t} />
+            )}
+
+            {currentPage === 'payment' && !isAdmin && !isAccountant && (
               <PaymentPage
                 member={currentUser}
                 t={t}
-                onMakePayment={(amount) => makePaymentHandler(currentUser.id, amount)}
+                onMakePayment={(amount, taxId) => makePaymentHandler(currentUser.id, amount, taxId)}
               />
             )}
           </main>

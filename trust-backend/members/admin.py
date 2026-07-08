@@ -1,39 +1,39 @@
 from django.contrib import admin
 from import_export.admin import ImportExportModelAdmin
-from .models import Member, Child
+from .models import Member, Child, TaxMaster, MemberTax, Transaction
 
 
 class ChildInline(admin.TabularInline):
     """Inline admin for children"""
     model = Child
     extra = 1
-    fields = ['name', 'date_of_birth', 'gender']
+    fields = ('name', 'name_ta', 'date_of_birth', 'gender', 'marital_status')
 
 
 @admin.register(Member)
 class MemberAdmin(ImportExportModelAdmin):
     """Admin interface for Member model with import/export"""
     
-    list_display = [
-        'name', 'phone', 'payment_status', 
+    list_display = (  # type: ignore[assignment]
+        'name', 'name_ta', 'phone', 'payment_status',
         'annual_tax', 'amount_paid', 'amount_due', 'is_active'
-    ]
+    )
     
-    list_filter = ['is_active', 'created_at']
+    list_filter = ('is_active', 'created_at')
     
-    search_fields = ['name', 'phone', 'father_name']
+    search_fields = ('name', 'name_ta', 'phone', 'father_name', 'father_name_ta')
     
-    readonly_fields = ['amount_due', 'payment_status', 'created_at', 'updated_at']
+    readonly_fields = ('amount_due', 'payment_status', 'created_at', 'updated_at')
     
     fieldsets = (
         ('User Account', {
             'fields': ('user',)
         }),
         ('Personal Information', {
-            'fields': ('name', 'phone', 'date_of_birth', 'address')
+            'fields': ('name', 'name_ta', 'phone', 'date_of_birth', 'address', 'address_ta')
         }),
         ('Family Information', {
-            'fields': ('father_name', 'mother_name', 'spouse_name')
+            'fields': ('father_name', 'father_name_ta', 'mother_name', 'mother_name_ta', 'spouse_name', 'spouse_name_ta')
         }),
         ('Financial Information', {
             'fields': ('annual_tax', 'amount_paid', 'amount_due', 'payment_status')
@@ -47,12 +47,12 @@ class MemberAdmin(ImportExportModelAdmin):
         }),
     )
     
-    inlines = [ChildInline]
+    inlines = (ChildInline,)
     
     def get_readonly_fields(self, request, obj=None):
         """Make user field readonly after creation"""
         if obj:  # Editing an existing object
-            return self.readonly_fields + ['user']
+            return (*self.readonly_fields, 'user')
         return self.readonly_fields
 
 
@@ -60,10 +60,65 @@ class MemberAdmin(ImportExportModelAdmin):
 class ChildAdmin(admin.ModelAdmin):
     """Admin interface for Child model"""
     
-    list_display = ['name', 'member', 'date_of_birth', 'gender']
+    list_display = ('name', 'member', 'date_of_birth', 'gender')
     
-    list_filter = ['gender', 'date_of_birth']
+    list_filter = ('gender', 'date_of_birth')
     
-    search_fields = ['name', 'member__name']
+    search_fields = ('name', 'member__name')
     
-    autocomplete_fields = ['member']
+    autocomplete_fields = ('member',)
+
+@admin.register(TaxMaster)
+class TaxMasterAdmin(admin.ModelAdmin):
+    list_display = ('name', 'base_amount', 'is_active', 'created_at')
+    list_filter = ('is_active', 'created_at')
+    search_fields = ('name',)
+    actions = ['generate_taxes']
+
+    @admin.action(description='Generate taxes for all active members')
+    def generate_taxes(self, request, queryset):
+        from decimal import Decimal
+        for tax_master in queryset:
+            members = Member.objects.filter(is_active=True)
+            created_count = 0
+            for member in members:
+                # Calculate tax count
+                # Base is 1 for family head
+                tax_count = Decimal('1.0')
+                for child in member.children.all():
+                    if child.gender == 'Male':
+                        if child.marital_status == 'Unmarried':
+                            tax_count += Decimal('0.5')
+                        else:
+                            tax_count += Decimal('1.0')
+                    # Girls do not add to tax count
+                
+                total_tax = tax_count * tax_master.base_amount
+                
+                # Check if tax already exists
+                obj, created = MemberTax.objects.update_or_create(
+                    member=member,
+                    tax=tax_master,
+                    defaults={
+                        'tax_count': tax_count,
+                        'total_tax': total_tax,
+                        # Don't update amount_paid here in case it was already paid
+                    }
+                )
+                if created:
+                    created_count += 1
+            self.message_user(request, f"Generated {created_count} new taxes for '{tax_master.name}'.")
+
+@admin.register(MemberTax)
+class MemberTaxAdmin(admin.ModelAdmin):
+    list_display = ('member', 'tax', 'tax_count', 'total_tax', 'amount_due', 'payment_status')
+    list_filter = ('tax', 'created_at')
+    search_fields = ('member__name', 'member__phone')
+    readonly_fields = ('amount_due',)
+
+@admin.register(Transaction)
+class TransactionAdmin(admin.ModelAdmin):
+    list_display = ('receipt_number', 'member', 'amount', 'transaction_type', 'payment_date')
+    list_filter = ('transaction_type', 'payment_date')
+    search_fields = ('receipt_number', 'member__name', 'member__phone')
+    readonly_fields = ('receipt_number',)

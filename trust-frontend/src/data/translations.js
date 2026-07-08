@@ -85,7 +85,19 @@ export const translations = {
     upcomingEvents: 'Upcoming Events',
     meetings: 'Meetings',
     contentManagement: 'Content Management',
-    tamilTyping: 'Tamil Typing'
+    tamilTyping: 'Tamil Typing',
+    nameEnglish: 'Name (English)',
+    nameTamil: 'Name (Tamil)',
+    addressEnglish: 'Address (English)',
+    addressTamil: 'Address (Tamil)',
+    fatherNameEnglish: "Father's Name (English)",
+    fatherNameTamil: "Father's Name (Tamil)",
+    motherNameEnglish: "Mother's Name (English)",
+    motherNameTamil: "Mother's Name (Tamil)",
+    spouseNameEnglish: "Spouse's Name (English)",
+    spouseNameTamil: "Spouse's Name (Tamil)",
+    childNameEnglish: 'Child Name (English)',
+    childNameTamil: 'Child Name (Tamil)'
   },
   ta: {
     appTitle: 'கலிங்க கோவில் அறக்கட்டளை போர்டல்',
@@ -173,6 +185,18 @@ export const translations = {
     upcomingEvents: 'வரவிருக்கும் நிகழ்வுகள்',
     meetings: 'கூட்டங்கள்',
     contentManagement: 'உள்ளடக்க மேலாண்மை',
-    tamilTyping: 'தமிழ் தட்டச்சு'
+    tamilTyping: 'தமிழ் தட்டச்சு',
+    nameEnglish: 'பெயர் (ஆங்கிலம்)',
+    nameTamil: 'பெயர் (தமிழ்)',
+    addressEnglish: 'முகவரி (ஆங்கிலம்)',
+    addressTamil: 'முகவரி (தமிழ்)',
+    fatherNameEnglish: 'தந்தை பெயர் (ஆங்கிலம்)',
+    fatherNameTamil: 'தந்தை பெயர் (தமிழ்)',
+    motherNameEnglish: 'தாய் பெயர் (ஆங்கிலம்)',
+    motherNameTamil: 'தாய் பெயர் (தமிழ்)',
+    spouseNameEnglish: 'வாழ்க்கைத்துணை பெயர் (ஆங்கிலம்)',
+    spouseNameTamil: 'வாழ்க்கைத்துணை பெயர் (தமிழ்)',
+    childNameEnglish: 'குழந்தை பெயர் (ஆங்கிலம்)',
+    childNameTamil: 'குழந்தை பெயர் (தமிழ்)'
   }
 };

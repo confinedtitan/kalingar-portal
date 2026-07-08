@@ -1,80 +1,59 @@
 import React from 'react';
-import { Home, Users, Plus, DollarSign, GitBranch, User, FileText } from 'lucide-react';
+import { Home, Users, Plus, DollarSign, GitBranch, User, FileText, BookOpen, List, PlusCircle, BarChart3, Gift } from 'lucide-react';
 import { styles } from '../utils/styles';
 
-export default function Sidebar({ isAdmin, currentPage, setCurrentPage, t }) {
+export default function Sidebar({ isAdmin, isAccountant, currentPage, setCurrentPage, t }) {
+  const NavBtn = ({ page, icon: Icon, label }) => (
+    <button
+      onClick={() => setCurrentPage(page)}
+      style={{ ...styles.navButton, ...(currentPage === page ? styles.navButtonActive : {}) }}
+    >
+      <Icon size={20} />
+      <span>{label}</span>
+    </button>
+  );
+
   return (
     <aside style={styles.sidebar}>
       <nav style={styles.nav}>
-        <button
-          onClick={() => setCurrentPage('dashboard')}
-          style={{ ...styles.navButton, ...(currentPage === 'dashboard' ? styles.navButtonActive : {}) }}
-        >
-          <Home size={20} />
-          <span>{t.dashboard}</span>
-        </button>
+        <NavBtn page="dashboard" icon={Home} label={t.dashboard} />
 
+        {/* ── Admin Navigation ── */}
         {isAdmin && (
           <>
-            <button
-              onClick={() => setCurrentPage('members')}
-              style={{ ...styles.navButton, ...(currentPage === 'members' ? styles.navButtonActive : {}) }}
-            >
-              <Users size={20} />
-              <span>{t.members}</span>
-            </button>
+            <NavBtn page="members" icon={Users} label={t.members} />
+            <NavBtn page="addMember" icon={Plus} label={t.addMember} />
+            <NavBtn page="allPayments" icon={DollarSign} label={t.payments} />
+            <NavBtn page="familyTree" icon={GitBranch} label={t.familyTree} />
+            <NavBtn page="contentManagement" icon={FileText} label={t.contentManagement || 'Content'} />
+            <NavBtn page="taxManagement" icon={DollarSign} label="Tax Management" />
 
-            <button
-              onClick={() => setCurrentPage('addMember')}
-              style={{ ...styles.navButton, ...(currentPage === 'addMember' ? styles.navButtonActive : {}) }}
-            >
-              <Plus size={20} />
-              <span>{t.addMember}</span>
-            </button>
-
-            <button
-              onClick={() => setCurrentPage('allPayments')}
-              style={{ ...styles.navButton, ...(currentPage === 'allPayments' ? styles.navButtonActive : {}) }}
-            >
-              <DollarSign size={20} />
-              <span>{t.payments}</span>
-            </button>
-
-            <button
-              onClick={() => setCurrentPage('familyTree')}
-              style={{ ...styles.navButton, ...(currentPage === 'familyTree' ? styles.navButtonActive : {}) }}
-            >
-              <GitBranch size={20} />
-              <span>{t.familyTree}</span>
-            </button>
-
-            <button
-              onClick={() => setCurrentPage('contentManagement')}
-              style={{ ...styles.navButton, ...(currentPage === 'contentManagement' ? styles.navButtonActive : {}) }}
-            >
-              <FileText size={20} />
-              <span>{t.contentManagement || 'Content'}</span>
-            </button>
+            {/* Admin accounting access */}
+            <div style={{ margin: '12px 0 4px', padding: '0 16px', fontSize: '11px', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Accounting
+            </div>
+            <NavBtn page="accountHeads" icon={BookOpen} label="Account Heads" />
+            <NavBtn page="transactionList" icon={List} label="Transactions" />
+            <NavBtn page="addTransaction" icon={PlusCircle} label="Add Transaction" />
           </>
         )}
 
-        {!isAdmin && (
+        {/* ── Accountant Navigation ── */}
+        {isAccountant && (
           <>
-            <button
-              onClick={() => setCurrentPage('myProfile')}
-              style={{ ...styles.navButton, ...(currentPage === 'myProfile' ? styles.navButtonActive : {}) }}
-            >
-              <User size={20} />
-              <span>{t.myProfile}</span>
-            </button>
+            <NavBtn page="accountantDashboard" icon={BarChart3} label="Dashboard" />
+            <NavBtn page="accountHeads" icon={BookOpen} label="Account Heads" />
+            <NavBtn page="addTransaction" icon={PlusCircle} label="Add Transaction" />
+            <NavBtn page="transactionList" icon={List} label="Transactions" />
+          </>
+        )}
 
-            <button
-              onClick={() => setCurrentPage('payment')}
-              style={{ ...styles.navButton, ...(currentPage === 'payment' ? styles.navButtonActive : {}) }}
-            >
-              <DollarSign size={20} />
-              <span>{t.makePayment}</span>
-            </button>
+        {/* ── Member Navigation ── */}
+        {!isAdmin && !isAccountant && (
+          <>
+            <NavBtn page="myProfile" icon={User} label={t.myProfile} />
+            <NavBtn page="payment" icon={DollarSign} label={t.makePayment} />
+            <NavBtn page="myDonations" icon={Gift} label="My Donations" />
           </>
         )}
       </nav>

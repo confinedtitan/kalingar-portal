@@ -1,0 +1,222 @@
+import React, { useState, useEffect } from 'react';
+import { styles } from '../utils/styles';
+import { accountingAPI } from '../services/api';
+
+export default function AccountHeadsPage({ isAdmin, t }) {
+  const [heads, setHeads] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingHead, setEditingHead] = useState(null);
+  const [form, setForm] = useState({ name: '', description: '', head_type: '' });
+
+  const fetchHeads = async () => {
+    try {
+      const res = await accountingAPI.getAccountHeads();
+      setHeads(Array.isArray(res.data) ? res.data : res.data?.results || []);
+    } catch (err) {
+      console.error('Error fetching account heads:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchHeads(); }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingHead) {
+        await accountingAPI.updateAccountHead(editingHead.id, form);
+      } else {
+        await accountingAPI.createAccountHead(form);
+      }
+      setShowForm(false);
+      setEditingHead(null);
+      setForm({ name: '', description: '', head_type: '' });
+      fetchHeads();
+    } catch (err) {
+      console.error('Error saving account head:', err);
+      const msg = err.response?.data
+        ? Object.values(err.response.data).flat().join(', ')
+        : 'Failed to save.';
+      alert(msg);
+    }
+  };
+
+  const handleEdit = (head) => {
+    setEditingHead(head);
+    setForm({ name: head.name, description: head.description || '', head_type: head.head_type || '' });
+    setShowForm(true);
+  };
+
+  const handleDeactivate = async (head) => {
+    if (!window.confirm(`Deactivate "${head.name}"? It won't appear in new transaction dropdowns.`)) return;
+    try {
+      await accountingAPI.deactivateAccountHead(head.id);
+      fetchHeads();
+    } catch (err) {
+      console.error('Deactivate error:', err);
+      alert(err.response?.data?.error || 'Failed to deactivate.');
+    }
+  };
+
+  const handleExport = async (head) => {
+    try {
+      const res = await accountingAPI.exportAccountHead(head.id);
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${head.name.replace(/\s+/g, '_')}_Report.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export error:', err);
+      alert('Failed to export.');
+    }
+  };
+
+  const cardBase = {
+    background: 'white', borderRadius: '12px', padding: '24px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #e5e7eb',
+  };
+
+  if (loading) {
+    return <div style={styles.page}><p style={{ textAlign: 'center', color: '#6b7280', padding: '60px' }}>Loading...</p></div>;
+  }
+
+  return (
+    <div style={styles.page}>
+      <div style={styles.pageHeader}>
+        <h2 style={styles.pageTitle}>📁 Account Heads</h2>
+        <button
+          onClick={() => { setEditingHead(null); setForm({ name: '', description: '', head_type: '' }); setShowForm(true); }}
+          style={{ ...styles.exportButton, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+        >
+          ➕ New Account Head
+        </button>
+      </div>
+
+      {/* Create/Edit Form Modal */}
+      {showForm && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+        }}>
+          <div style={{ ...cardBase, width: '100%', maxWidth: '480px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700' }}>
+                {editingHead ? 'Edit Account Head' : 'New Account Head'}
+              </h3>
+              <button onClick={() => { setShowForm(false); setEditingHead(null); }}
+                style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#6b7280' }}>✕</button>
+            </div>
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={styles.formGroup}>
+                <label style={styles.formLabel}>Name *</label>
+                <input
+                  type="text" required value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  style={styles.formInput} placeholder="e.g. Kovil Kodai 2026"
+                />
+              </div>
+              <div style={styles.formGroup}>
+                <label style={styles.formLabel}>Type</label>
+                <select
+                  value={form.head_type}
+                  onChange={(e) => setForm({ ...form, head_type: e.target.value })}
+                  style={styles.formInput}
+                >
+                  <option value="">Select type (optional)</option>
+                  <option value="Event">Event</option>
+                  <option value="Recurring">Recurring</option>
+                  <option value="General">General</option>
+                </select>
+              </div>
+              <div style={styles.formGroup}>
+                <label style={styles.formLabel}>Description</label>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  style={styles.formTextarea} rows={3}
+                />
+              </div>
+              <button type="submit" style={styles.submitButton}>
+                {editingHead ? 'Update' : 'Create'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Heads List */}
+      <div style={styles.tableContainer}>
+        <table style={styles.table}>
+          <thead>
+            <tr>
+              <th style={styles.th}>Name</th>
+              <th style={styles.th}>Type</th>
+              <th style={styles.th}>Status</th>
+              <th style={styles.th}>Created By</th>
+              <th style={styles.th}>Created</th>
+              <th style={styles.th}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {heads.map((head) => (
+              <tr key={head.id} style={styles.tr}>
+                <td style={{ ...styles.td, fontWeight: '600' }}>{head.name}</td>
+                <td style={styles.td}>
+                  {head.head_type ? (
+                    <span style={{
+                      padding: '2px 10px', borderRadius: '12px', fontSize: '12px',
+                      fontWeight: '600', background: '#eef2ff', color: '#4338ca',
+                    }}>{head.head_type}</span>
+                  ) : '—'}
+                </td>
+                <td style={styles.td}>
+                  <span style={head.is_active ? styles.statusPaid : styles.statusPending}>
+                    {head.is_active ? 'Active' : 'Inactive'}
+                  </span>
+                </td>
+                <td style={styles.td}>{head.created_by_name || '—'}</td>
+                <td style={{ ...styles.td, fontSize: '12px', color: '#6b7280' }}>
+                  {head.created_at ? new Date(head.created_at).toLocaleDateString() : ''}
+                </td>
+                <td style={styles.td}>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {isAdmin && (
+                      <button onClick={() => handleEdit(head)} style={{ ...styles.actionButton, fontSize: '12px', padding: '4px 10px' }}>
+                        ✏️ Edit
+                      </button>
+                    )}
+                    {isAdmin && head.is_active && (
+                      <button onClick={() => handleDeactivate(head)} style={{
+                        ...styles.actionButton, background: '#ef4444', fontSize: '12px', padding: '4px 10px',
+                      }}>
+                        🚫 Deactivate
+                      </button>
+                    )}
+                    <button onClick={() => handleExport(head)} style={{
+                      ...styles.actionButton, background: '#10b981', fontSize: '12px', padding: '4px 10px',
+                    }}>
+                      📥 Export
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {heads.length === 0 && (
+              <tr>
+                <td colSpan={6} style={{ ...styles.td, textAlign: 'center', color: '#9ca3af', padding: '40px' }}>
+                  No account heads yet. Click "New Account Head" to create one.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

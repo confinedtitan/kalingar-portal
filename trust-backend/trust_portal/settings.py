@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     # Local apps
     'members',
     'payments',
+    'accounting',
 ]
 
 MIDDLEWARE = [
@@ -136,7 +137,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
+        # SessionAuthentication is intentionally excluded: it enforces an
+        # internal CSRF check on every POST (independent of Django's CSRF
+        # middleware), which causes 403 on login/logout for Token-auth clients.
+        # This API is Token-only — session auth is not required.
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -158,6 +162,18 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOW_CREDENTIALS = True
 
+# CSRF — trust the React dev server and same-host requests.
+# Token-authenticated API endpoints enforce identity via the Authorization
+# header, not cookies, so CSRF is not a meaningful threat for those routes.
+# Without this Django's CsrfViewMiddleware returns 403 on every POST
+# that originates from http://localhost:3000.
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]
+
 # Custom user model (optional - using phone as username)
 # AUTH_USER_MODEL = 'members.CustomUser'
 
@@ -176,3 +192,10 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 # TWILIO_ACCOUNT_SID = config('TWILIO_ACCOUNT_SID', default='')
 # TWILIO_AUTH_TOKEN = config('TWILIO_AUTH_TOKEN', default='')
 # TWILIO_PHONE_NUMBER = config('TWILIO_PHONE_NUMBER', default='')
+
+# Trust branding config — used in receipt PDF generation
+TRUST_CONFIG = {
+    'name': 'Kalinga Temple Trust',
+    'address': '',  # Fill in with actual trust address
+    'logo_path': None,  # Optional: absolute path to logo image file
+}

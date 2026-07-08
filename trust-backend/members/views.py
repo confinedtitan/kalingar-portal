@@ -8,12 +8,13 @@ from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 
-from .models import Member, Child, Announcement, Event, Meeting
+from .models import Member, Child, Announcement, Event, Meeting, TaxMaster, MemberTax, Transaction
 from .serializers import (
     MemberSerializer, MemberCreateSerializer, MemberUpdateSerializer,
     MemberListSerializer, ChildSerializer, UserLoginSerializer,
     PasswordChangeSerializer, AdminPasswordResetSerializer,
-    AnnouncementSerializer, EventSerializer, MeetingSerializer
+    AnnouncementSerializer, EventSerializer, MeetingSerializer,
+    TaxMasterSerializer, MemberTaxSerializer, TransactionSerializer
 )
 
 
@@ -26,7 +27,7 @@ class IsAdminOrOwner(permissions.BasePermission):
     
     def has_object_permission(self, request, view, obj):
         # Admin can access everything
-        if request.user.is_staff:
+        if request.user.is_staff:  # type: ignore[union-attr]
             return True
         # Members can only access their own profile
         return obj.user == request.user
@@ -40,7 +41,7 @@ class MemberViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminOrOwner]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]  # type: ignore[assignment]
     filterset_fields = ['is_active']
-    search_fields = ['name', 'phone', 'father_name']
+    search_fields = ['name', 'name_ta', 'phone', 'father_name', 'father_name_ta']
     ordering_fields = ['name', 'created_at', 'annual_tax', 'amount_due']
     ordering = ['name']
     
@@ -126,8 +127,12 @@ class MemberViewSet(viewsets.ModelViewSet):
         
         writer = csv.writer(response)
         writer.writerow([
-            'Member ID', 'Name', 'Phone', 'DOB', 'Address',
-            'Father Name', 'Mother Name', 'Spouse Name',
+            'Member ID', 'Name', 'Name (Tamil)',
+            'Phone', 'DOB',
+            'Address', 'Address (Tamil)',
+            'Father Name', 'Father Name (Tamil)',
+            'Mother Name', 'Mother Name (Tamil)',
+            'Spouse Name', 'Spouse Name (Tamil)',
             'Children',
             'Annual Tax', 'Amount Paid', 'Amount Due', 'Status'
         ])
@@ -140,9 +145,13 @@ class MemberViewSet(viewsets.ModelViewSet):
             ])
             writer.writerow([
                 member.member_id,
-                member.name, member.phone,
-                member.date_of_birth, member.address,
-                member.father_name, member.mother_name, member.spouse_name,
+                member.name, member.name_ta,
+                member.phone,
+                member.date_of_birth,
+                member.address, member.address_ta,
+                member.father_name, member.father_name_ta,
+                member.mother_name, member.mother_name_ta,
+                member.spouse_name, member.spouse_name_ta,
                 children_list,
                 member.annual_tax, member.amount_paid, member.amount_due,
                 member.payment_status
@@ -236,20 +245,44 @@ class AuthViewSet(viewsets.ViewSet):
                     
                     return Response({
                         'token': token.key,
-                        'user_id': user.id,
+                        'user_id': user.id,  # type: ignore[attr-defined]
                         'phone': phone,
                         'is_admin': is_admin,
-                        'member_id': member.id,
+                        'role': 'ADMIN' if is_admin else 'MEMBER',
+                        'member_id': member.id,  # type: ignore[attr-defined]
                         'name': member.name,
                         'password_reset_required': member.password_reset_required,
                     })
                 except Member.DoesNotExist:
+                    # Check for StaffProfile (e.g. Accountant)
+                    try:
+                        from accounting.models import StaffProfile
+                        staff = StaffProfile.objects.get(user=user)
+                        if not staff.is_active:
+                            return Response(
+                                {'error': 'Account is deactivated.'},
+                                status=status.HTTP_403_FORBIDDEN,
+                            )
+                        return Response({
+                            'token': token.key,
+                            'user_id': user.id,  # type: ignore[attr-defined]
+                            'phone': phone,
+                            'is_admin': False,
+                            'role': staff.role,  # 'ACCOUNTANT'
+                            'staff_id': staff.id,  # type: ignore[attr-defined]
+                            'name': staff.name,
+                            'password_reset_required': False,
+                        })
+                    except StaffProfile.DoesNotExist:
+                        pass
+
                     # Admin user without member profile
                     return Response({
                         'token': token.key,
-                        'user_id': user.id,
+                        'user_id': user.id,  # type: ignore[attr-defined]
                         'phone': phone,
                         'is_admin': user.is_staff,
+                        'role': 'ADMIN' if user.is_staff else 'UNKNOWN',
                         'name': user.get_username(),  # get_username() is defined on AbstractBaseUser
                         'password_reset_required': False,
                     })
@@ -335,7 +368,7 @@ class AuthViewSet(viewsets.ViewSet):
                 return Response({
                     'message': f'Password reset successfully for {member.name}',
                     'temporary_password': new_password,
-                    'member_id': member.id,
+                    'member_id': member.id,  # type: ignore[attr-defined]
                 })
             except Member.DoesNotExist:
                 return Response(
@@ -389,3 +422,91 @@ class MeetingViewSet(viewsets.ModelViewSet):
         if self.request.user.is_staff:
             return Meeting.objects.all()
         return Meeting.objects.filter(is_active=True)
+
+class TaxMasterViewSet(viewsets.ModelViewSet):
+    queryset = TaxMaster.objects.all()
+    serializer_class = TaxMasterSerializer
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrReadOnly]
+    
+    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAdminUser])
+    def generate_taxes(self, request):
+        tax_id = request.data.get('tax_id')
+        if not tax_id:
+            return Response({'error': 'tax_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            tax_master = TaxMaster.objects.get(id=tax_id)
+        except TaxMaster.DoesNotExist:
+            return Response({'error': 'TaxMaster not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+        from decimal import Decimal
+        members = Member.objects.filter(is_active=True)
+        created_count = 0
+        for member in members:
+            tax_count = Decimal('1.0')
+            for child in member.children.all():
+                if child.gender == 'Male':
+                    if child.marital_status == 'Unmarried':
+                        tax_count += Decimal('0.5')
+                    else:
+                        tax_count += Decimal('1.0')
+            
+            total_tax = tax_count * tax_master.base_amount
+            
+            obj, created = MemberTax.objects.update_or_create(
+                member=member,
+                tax=tax_master,
+                defaults={
+                    'tax_count': tax_count,
+                    'total_tax': total_tax,
+                }
+            )
+            if created:
+                created_count += 1
+                
+        return Response({'message': f'Generated {created_count} new taxes for {tax_master.name}'})
+
+class MemberTaxViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = MemberTaxSerializer
+    permission_classes = [IsAdminOrOwner]
+    
+    def get_queryset(self):
+        user = self.request.user
+        assert isinstance(user, User)
+        if user.is_staff:
+            return MemberTax.objects.all()
+        try:
+            member = Member.objects.get(user=user)
+            return MemberTax.objects.filter(member=member)
+        except Member.DoesNotExist:
+            return MemberTax.objects.none()
+
+class TransactionViewSet(viewsets.ModelViewSet):
+    serializer_class = TransactionSerializer
+    permission_classes = [IsAdminOrOwner]
+    
+    def get_queryset(self):
+        user = self.request.user
+        assert isinstance(user, User)
+        if user.is_staff:
+            return Transaction.objects.all()
+        try:
+            member = Member.objects.get(user=user)
+            return Transaction.objects.filter(member=member)
+        except Member.DoesNotExist:
+            return Transaction.objects.none()
+            
+    def perform_create(self, serializer):
+        user = self.request.user
+        assert isinstance(user, User)
+        if user.is_staff and 'member' in serializer.validated_data:
+            member = serializer.validated_data['member']
+        else:
+            member = Member.objects.get(user=user)
+            
+        transaction = serializer.save(member=member)
+        
+        if transaction.member_tax and transaction.transaction_type == 'Payment':
+            member_tax = transaction.member_tax
+            member_tax.amount_paid += transaction.amount
+            member_tax.save()

@@ -25,6 +25,7 @@ urlpatterns = [
     path('api/auth/login/', obtain_auth_token, name='api_token_auth'),
     path('api/members/', include('members.urls')),
     path('api/payments/', include('payments.urls')),
+    path('api/accounting/', include('accounting.urls')),
 ]
 
 # Serve media files in development

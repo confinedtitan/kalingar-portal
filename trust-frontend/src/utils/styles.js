@@ -391,11 +391,12 @@ export const styles = {
   tableContainer: {
     background: 'white',
     borderRadius: '12px',
-    overflow: 'hidden',
+    overflowX: 'auto',
     boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
   },
   table: {
     width: '100%',
+    minWidth: '950px',
     borderCollapse: 'collapse'
   },
   th: {
@@ -424,7 +425,8 @@ export const styles = {
     color: '#065f46',
     borderRadius: '12px',
     fontSize: '12px',
-    fontWeight: '600'
+    fontWeight: '600',
+    whiteSpace: 'nowrap'
   },
   statusPending: {
     display: 'inline-block',
@@ -433,7 +435,8 @@ export const styles = {
     color: '#92400e',
     borderRadius: '12px',
     fontSize: '12px',
-    fontWeight: '600'
+    fontWeight: '600',
+    whiteSpace: 'nowrap'
   },
   actionButton: {
     padding: '6px 16px',
@@ -443,7 +446,8 @@ export const styles = {
     borderRadius: '6px',
     fontSize: '13px',
     fontWeight: '600',
-    cursor: 'pointer'
+    cursor: 'pointer',
+    whiteSpace: 'nowrap'
   },
 
   // Form Styles

@@ -119,4 +119,48 @@ export const contentAPI = {
   deleteMeeting: (id) => api.delete(`/members/meetings/${id}/`),
 };
 
+// Accounting API (Account Heads, Transactions, Receipts, Staff)
+export const accountingAPI = {
+  // Staff (Accountant) management — Admin only
+  getStaff: (params) => api.get('/accounting/staff/', { params }),
+  createStaff: (data) => api.post('/accounting/staff/', data),
+  updateStaff: (id, data) => api.put(`/accounting/staff/${id}/`, data),
+  deactivateStaff: (id) => api.post(`/accounting/staff/${id}/deactivate/`),
+  activateStaff: (id) => api.post(`/accounting/staff/${id}/activate/`),
+
+  // Account Heads
+  getAccountHeads: (params) => api.get('/accounting/account-heads/', { params }),
+  createAccountHead: (data) => api.post('/accounting/account-heads/', data),
+  updateAccountHead: (id, data) => api.put(`/accounting/account-heads/${id}/`, data),
+  deactivateAccountHead: (id) =>
+    api.post(`/accounting/account-heads/${id}/deactivate/`),
+  getHeadSummary: (id) => api.get(`/accounting/account-heads/${id}/summary/`),
+  exportAccountHead: (id, params) =>
+    api.get(`/accounting/account-heads/${id}/export/`, {
+      params,
+      responseType: 'blob',
+    }),
+  exportAllAccountHeads: (params) =>
+    api.get('/accounting/account-heads/export-all/', {
+      params,
+      responseType: 'blob',
+    }),
+
+  // Transactions
+  getTransactions: (params) => api.get('/accounting/transactions/', { params }),
+  createTransaction: (data, config) =>
+    api.post('/accounting/transactions/', data, config),
+  updateTransaction: (id, data) =>
+    api.put(`/accounting/transactions/${id}/`, data),
+  deleteTransaction: (id) => api.delete(`/accounting/transactions/${id}/`),
+  getTransactionSummary: () => api.get('/accounting/transactions/summary/'),
+
+  // My Donations (for linked members)
+  getMyDonations: () => api.get('/accounting/transactions/my-donations/'),
+
+  // Receipts
+  downloadReceipt: (id) =>
+    api.get(`/accounting/receipts/${id}/download/`, { responseType: 'blob' }),
+};
+
 export default api;
