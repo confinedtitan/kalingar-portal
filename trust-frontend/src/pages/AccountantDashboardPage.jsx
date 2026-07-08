@@ -93,7 +93,7 @@ export default function AccountantDashboardPage({ t }) {
     return (
       <div style={styles.page}>
         <p style={{ textAlign: 'center', color: '#6b7280', padding: '60px 0' }}>
-          Loading dashboard...
+          {t.loadingDashboard || 'Loading dashboard...'}
         </p>
       </div>
     );
@@ -102,7 +102,7 @@ export default function AccountantDashboardPage({ t }) {
   return (
     <div style={styles.page}>
       <div style={styles.pageHeader}>
-        <h2 style={styles.pageTitle}>📊 Accountant Dashboard</h2>
+        <h2 style={styles.pageTitle}>📊 {t.accountantDashboard || 'Accountant Dashboard'}</h2>
       </div>
 
       {/* Overall Summary */}
@@ -112,7 +112,7 @@ export default function AccountantDashboardPage({ t }) {
             ₹{Number(summary?.total_income || 0).toLocaleString()}
           </div>
           <div style={{ fontSize: '14px', color: '#6b7280', fontWeight: '500' }}>
-            Total Income
+            {t.totalIncome || 'Total Income'}
           </div>
         </div>
         <div style={widgetCard('#ef4444')}>
@@ -120,7 +120,7 @@ export default function AccountantDashboardPage({ t }) {
             ₹{Number(summary?.total_expense || 0).toLocaleString()}
           </div>
           <div style={{ fontSize: '14px', color: '#6b7280', fontWeight: '500' }}>
-            Total Expenses
+            {t.totalExpenses || 'Total Expenses'}
           </div>
         </div>
         <div style={widgetCard('#4338ca')}>
@@ -128,7 +128,7 @@ export default function AccountantDashboardPage({ t }) {
             ₹{Number(summary?.net_balance || 0).toLocaleString()}
           </div>
           <div style={{ fontSize: '14px', color: '#6b7280', fontWeight: '500' }}>
-            Net Balance
+            {t.netBalance || 'Net Balance'}
           </div>
         </div>
         <div style={widgetCard('#f59e0b')}>
@@ -136,14 +136,14 @@ export default function AccountantDashboardPage({ t }) {
             {summary?.total_transactions || 0}
           </div>
           <div style={{ fontSize: '14px', color: '#6b7280', fontWeight: '500' }}>
-            Total Transactions
+            {t.totalTransactions || 'Total Transactions'}
           </div>
         </div>
       </div>
 
       {/* Per-Head Summary Cards */}
       <h3 style={{ ...styles.sectionTitle, marginBottom: '16px' }}>
-        📁 Account Head Summary
+        📁 {t.accountHeadSummary || 'Account Head Summary'}
       </h3>
       <div style={{
         display: 'grid',
@@ -174,24 +174,24 @@ export default function AccountantDashboardPage({ t }) {
                 <div style={{ fontSize: '16px', fontWeight: '700', color: '#059669' }}>
                   ₹{Number(h.total_income || 0).toLocaleString()}
                 </div>
-                <div style={{ fontSize: '11px', color: '#6b7280' }}>Income</div>
+                <div style={{ fontSize: '11px', color: '#6b7280' }}>{t.income || 'Income'}</div>
               </div>
               <div style={{ textAlign: 'center', padding: '8px', background: '#fef2f2', borderRadius: '8px' }}>
                 <div style={{ fontSize: '16px', fontWeight: '700', color: '#dc2626' }}>
                   ₹{Number(h.total_expense || 0).toLocaleString()}
                 </div>
-                <div style={{ fontSize: '11px', color: '#6b7280' }}>Expense</div>
+                <div style={{ fontSize: '11px', color: '#6b7280' }}>{t.expense || 'Expense'}</div>
               </div>
               <div style={{ textAlign: 'center', padding: '8px', background: '#eef2ff', borderRadius: '8px' }}>
                 <div style={{ fontSize: '16px', fontWeight: '700', color: '#4338ca' }}>
                   ₹{Number(h.net_balance || 0).toLocaleString()}
                 </div>
-                <div style={{ fontSize: '11px', color: '#6b7280' }}>Balance</div>
+                <div style={{ fontSize: '11px', color: '#6b7280' }}>{t.balance || 'Balance'}</div>
               </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '12px', color: '#9ca3af' }}>
-                {h.transaction_count || 0} transactions
+                {h.transaction_count || 0} {t.transactionsCount || 'transactions'}
               </span>
               <button
                 onClick={() => handleExportHead(h.id, h.name)}
@@ -201,26 +201,26 @@ export default function AccountantDashboardPage({ t }) {
                   borderRadius: '6px', cursor: 'pointer',
                 }}
               >
-                📥 Export
+                📥 {t.exportReport || 'Export'}
               </button>
             </div>
           </div>
         ))}
         {headSummaries.length === 0 && (
           <div style={{ textAlign: 'center', color: '#9ca3af', padding: '40px', gridColumn: '1 / -1' }}>
-            No account heads yet. Create one from the Account Heads page.
+            {t.noAccountHeads || 'No account heads yet. Create one from the Account Heads page.'}
           </div>
         )}
       </div>
 
       {/* Recent Transactions */}
       <h3 style={{ ...styles.sectionTitle, marginBottom: '16px' }}>
-        🕐 Recent Transactions
+        🕐 {t.recentTransactions || 'Recent Transactions'}
       </h3>
       <div style={cardBase}>
         {recentTxns.length === 0 ? (
           <div style={{ textAlign: 'center', color: '#9ca3af', padding: '24px' }}>
-            No transactions yet.
+            {t.noTransactions || 'No transactions yet.'}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -242,6 +242,12 @@ export default function AccountantDashboardPage({ t }) {
                       ? txn.donor_name || 'Donation'
                       : txn.paid_to || 'Expense'}
                   </div>
+                  {/* Always show Tamil name as subtitle when non-empty */}
+                  {(txn.transaction_type === 'INCOME' ? txn.donor_name_ta : txn.paid_to_ta) && (
+                    <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '1px' }}>
+                      {txn.transaction_type === 'INCOME' ? txn.donor_name_ta : txn.paid_to_ta}
+                    </div>
+                  )}
                   <div style={{ fontSize: '12px', color: '#6b7280' }}>
                     {txn.account_head_name} • {txn.transaction_date} • {txn.payment_mode}
                   </div>

@@ -169,6 +169,15 @@ def generate_receipt_pdf(transaction):
     elements = []
 
     # --- Header: Trust name & address ---
+    sri_ramajeyam_style = ParagraphStyle(
+        'SriRamajeyam',
+        parent=styles['Normal'],
+        fontSize=12,
+        alignment=TA_CENTER,
+        textColor=colors.HexColor('#d97706'),
+        spaceAfter=4 * mm,
+    )
+    elements.append(Paragraph("ஸ்ரீ ராமஜெயம் | Sri Ramajeyam", sri_ramajeyam_style))
     elements.append(Paragraph(config.get('name', 'Trust'), title_style))
     if config.get('address'):
         elements.append(Paragraph(config['address'], subtitle_style))

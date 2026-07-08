@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Lock, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
 import { styles } from '../utils/styles';
 
-export default function ChangePassword({ onClose, onSuccess, isForced = false, t = {} }) {
+export default function ChangePassword({ onClose, onSuccess, isForced = false, t = {}, language = 'en' }) {
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -105,7 +105,8 @@ export default function ChangePassword({ onClose, onSuccess, isForced = false, t
     },
   };
 
-  const lang = Object.keys(translations).includes(Object.keys(t).length > 0 ? 'ta' : 'en') ? 'ta' : 'en';
+  // Use the explicitly passed language (defaults to 'en')
+  const lang = language === 'ta' ? 'ta' : 'en';
   const trans = translations[lang];
 
   const containerStyle = {
@@ -334,15 +335,14 @@ export default function ChangePassword({ onClose, onSuccess, isForced = false, t
           >
             {loading ? 'Changing...' : trans.changeButton}
           </button>
-          {!isForced && (
-            <button
-              onClick={onClose}
-              style={cancelButtonStyle}
-              disabled={loading}
-            >
-              {trans.cancel}
-            </button>
-          )}
+          {/* Always show Cancel — password change is never mandatory */}
+          <button
+            onClick={onClose}
+            style={cancelButtonStyle}
+            disabled={loading}
+          >
+            {trans.cancel}
+          </button>
         </div>
       </div>
     </div>

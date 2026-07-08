@@ -41,6 +41,7 @@ class StaffProfile(models.Model):
         User, on_delete=models.CASCADE, related_name='staff_profile',
     )
     name = models.CharField(max_length=200, verbose_name="Full Name")
+    name_ta = models.CharField(max_length=200, blank=True, default='', verbose_name="Full Name (Tamil)")
     phone = models.CharField(max_length=15, unique=True, verbose_name="Phone Number")
     role = models.CharField(
         max_length=20, choices=ROLE_CHOICES, default='ACCOUNTANT',
@@ -76,7 +77,9 @@ class AccountHead(models.Model):
     ]
 
     name = models.CharField(max_length=300, verbose_name="Account Head Name")
+    name_ta = models.CharField(max_length=300, blank=True, default='', verbose_name="Account Head Name (Tamil)")
     description = models.TextField(blank=True, default='')
+    description_ta = models.TextField(blank=True, default='', verbose_name="Description (Tamil)")
     head_type = models.CharField(
         max_length=20, choices=TYPE_CHOICES, blank=True, default='',
         verbose_name="Type",
@@ -137,6 +140,7 @@ class AccountTransaction(models.Model):
 
     # --- Income-specific fields ---
     donor_name = models.CharField(max_length=200, blank=True, default='')
+    donor_name_ta = models.CharField(max_length=200, blank=True, default='', verbose_name="Donor Name (Tamil)")
     donor_contact = models.CharField(max_length=50, blank=True, default='')
     member = models.ForeignKey(
         'members.Member', on_delete=models.SET_NULL,
@@ -147,10 +151,16 @@ class AccountTransaction(models.Model):
         blank=True, default='',
         verbose_name="Purpose / Remarks",
     )
+    purpose_ta = models.TextField(
+        blank=True, default='',
+        verbose_name="Purpose / Remarks (Tamil)",
+    )
 
     # --- Expense-specific fields ---
     paid_to = models.CharField(max_length=200, blank=True, default='')
+    paid_to_ta = models.CharField(max_length=200, blank=True, default='', verbose_name="Paid To (Tamil)")
     purpose_description = models.TextField(blank=True, default='')
+    purpose_description_ta = models.TextField(blank=True, default='', verbose_name="Purpose/Description (Tamil)")
     bill_reference = models.CharField(max_length=200, blank=True, default='')
 
     # Proof / documentation

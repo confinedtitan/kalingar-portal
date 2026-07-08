@@ -45,7 +45,7 @@ urlpatterns += [
 ]
 
 # Admin site customization
-admin.site.site_header = "Kalinga Temple Trust Portal"
+admin.site.site_header = f"{settings.TRUST_CONFIG.get('name', 'Trust')} Portal"
 admin.site.site_title = "Trust Admin"
-admin.site.index_title = "Welcome to Trust Management Portal"
+admin.site.index_title = f"Welcome to {settings.TRUST_CONFIG.get('name', 'Trust')} Management Portal"
 

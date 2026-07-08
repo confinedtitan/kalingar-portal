@@ -19,7 +19,7 @@ class StaffProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = StaffProfile
         fields = [
-            'id', 'username', 'name', 'phone', 'role',
+            'id', 'username', 'name', 'name_ta', 'phone', 'role',
             'is_active', 'created_at', 'updated_at',
         ]
         read_only_fields = ['created_at', 'updated_at']
@@ -29,6 +29,7 @@ class StaffProfileCreateSerializer(serializers.Serializer):
     """Create a Django User + StaffProfile in one step."""
 
     name = serializers.CharField(max_length=200)
+    name_ta = serializers.CharField(max_length=200, allow_blank=True, default='')
     phone = serializers.CharField(max_length=15)
     password = serializers.CharField(write_only=True, min_length=8)
     role = serializers.ChoiceField(
@@ -62,6 +63,7 @@ class StaffProfileCreateSerializer(serializers.Serializer):
         profile = StaffProfile.objects.create(
             user=user,
             name=validated_data['name'],
+            name_ta=validated_data.get('name_ta', ''),
             phone=phone,
             role=validated_data.get('role', 'ACCOUNTANT'),
         )
@@ -78,7 +80,7 @@ class AccountHeadSerializer(serializers.ModelSerializer):
     class Meta:
         model = AccountHead
         fields = [
-            'id', 'name', 'description', 'head_type',
+            'id', 'name', 'name_ta', 'description', 'description_ta', 'head_type',
             'is_active', 'created_by', 'created_by_name',
             'created_at', 'updated_at',
         ]
@@ -130,10 +132,10 @@ class AccountTransactionSerializer(serializers.ModelSerializer):
             'transaction_type', 'amount', 'transaction_date',
             'payment_mode',
             # Income fields
-            'donor_name', 'donor_contact', 'member', 'member_name',
-            'member_id_display', 'purpose',
+            'donor_name', 'donor_name_ta', 'donor_contact', 'member', 'member_name',
+            'member_id_display', 'purpose', 'purpose_ta',
             # Expense fields
-            'paid_to', 'purpose_description', 'bill_reference',
+            'paid_to', 'paid_to_ta', 'purpose_description', 'purpose_description_ta', 'bill_reference',
             # Tracking
             'proof_document', 'entered_by', 'entered_by_name',
             'is_deleted', 'change_log',
@@ -167,8 +169,8 @@ class AccountTransactionCreateSerializer(serializers.ModelSerializer):
         fields = [
             'account_head', 'transaction_type', 'amount',
             'transaction_date', 'payment_mode',
-            'donor_name', 'donor_contact', 'member', 'purpose',
-            'paid_to', 'purpose_description', 'bill_reference',
+            'donor_name', 'donor_name_ta', 'donor_contact', 'member', 'purpose', 'purpose_ta',
+            'paid_to', 'paid_to_ta', 'purpose_description', 'purpose_description_ta', 'bill_reference',
             'proof_document',
         ]
 

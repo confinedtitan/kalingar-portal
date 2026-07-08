@@ -71,9 +71,9 @@ export default function TransactionListPage({ isAdmin, t }) {
         <div style={styles.tableContainer}>
           <table style={{...styles.table, minWidth:'1100px'}}>
             <thead><tr>
-              <th style={styles.th}>Date</th><th style={styles.th}>Account Head</th><th style={styles.th}>Type</th>
-              <th style={styles.th}>Amount</th><th style={styles.th}>Mode</th><th style={styles.th}>Donor/Payee</th>
-              <th style={styles.th}>Receipt #</th><th style={styles.th}>Entered By</th><th style={styles.th}>Actions</th>
+              <th style={styles.th}>{t.date}</th><th style={styles.th}>{t.accountHeads || 'Account Head'}</th><th style={styles.th}>{t.type || 'Type'}</th>
+              <th style={styles.th}>{t.amount}</th><th style={styles.th}>{t.mode || 'Mode'}</th><th style={styles.th}>{t.donorPayee || 'Donor/Payee'}</th>
+              <th style={styles.th}>{t.receiptNo || 'Receipt #'}</th><th style={styles.th}>{t.enteredBy || 'Entered By'}</th><th style={styles.th}>{t.actions}</th>
             </tr></thead>
             <tbody>
               {transactions.map(txn => (
@@ -88,7 +88,23 @@ export default function TransactionListPage({ isAdmin, t }) {
                   <td style={{...styles.td, fontWeight:'700', color: txn.transaction_type==='INCOME'?'#059669':'#dc2626'}}>
                     ₹{Number(txn.amount).toLocaleString()}</td>
                   <td style={{...styles.td, fontSize:'13px'}}>{txn.payment_mode}</td>
-                  <td style={styles.td}>{txn.transaction_type==='INCOME' ? (txn.donor_name||txn.member_name||'—') : (txn.paid_to||'—')}</td>
+                  <td style={styles.td}>
+                    {txn.transaction_type === 'INCOME' ? (
+                      <div>
+                        <div>{txn.donor_name || txn.member_name || '—'}</div>
+                        {txn.donor_name_ta && (
+                          <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{txn.donor_name_ta}</div>
+                        )}
+                      </div>
+                    ) : (
+                      <div>
+                        <div>{txn.paid_to || '—'}</div>
+                        {txn.paid_to_ta && (
+                          <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{txn.paid_to_ta}</div>
+                        )}
+                      </div>
+                    )}
+                  </td>
                   <td style={{...styles.td, fontSize:'12px', color:'#4338ca', fontWeight:'600'}}>{txn.receipt_number||'—'}</td>
                   <td style={{...styles.td, fontSize:'12px'}}>{txn.entered_by_name||'—'}</td>
                   <td style={styles.td}>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Users, Plus, DollarSign, GitBranch, User, FileText, BookOpen, List, PlusCircle, BarChart3, Gift } from 'lucide-react';
+import { Home, Users, Plus, DollarSign, GitBranch, User, FileText, BookOpen, List, PlusCircle, BarChart3, Gift, KeyRound } from 'lucide-react';
 import { styles } from '../utils/styles';
 
 export default function Sidebar({ isAdmin, isAccountant, currentPage, setCurrentPage, t }) {
@@ -16,7 +16,10 @@ export default function Sidebar({ isAdmin, isAccountant, currentPage, setCurrent
   return (
     <aside style={styles.sidebar}>
       <nav style={styles.nav}>
-        <NavBtn page="dashboard" icon={Home} label={t.dashboard} />
+        {!isAccountant && <NavBtn page="dashboard" icon={Home} label={t.dashboard} />}
+
+        {/* ── Change Password — visible to ALL users ── */}
+        <NavBtn page="changePassword" icon={KeyRound} label={t.changePassword || 'Change Password'} />
 
         {/* ── Admin Navigation ── */}
         {isAdmin && (
@@ -26,25 +29,25 @@ export default function Sidebar({ isAdmin, isAccountant, currentPage, setCurrent
             <NavBtn page="allPayments" icon={DollarSign} label={t.payments} />
             <NavBtn page="familyTree" icon={GitBranch} label={t.familyTree} />
             <NavBtn page="contentManagement" icon={FileText} label={t.contentManagement || 'Content'} />
-            <NavBtn page="taxManagement" icon={DollarSign} label="Tax Management" />
+            <NavBtn page="taxManagement" icon={DollarSign} label={t.taxManagement || 'Tax Management'} />
 
             {/* Admin accounting access */}
             <div style={{ margin: '12px 0 4px', padding: '0 16px', fontSize: '11px', fontWeight: '700', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Accounting
+              {t.accounting || 'Accounting'}
             </div>
-            <NavBtn page="accountHeads" icon={BookOpen} label="Account Heads" />
-            <NavBtn page="transactionList" icon={List} label="Transactions" />
-            <NavBtn page="addTransaction" icon={PlusCircle} label="Add Transaction" />
+            <NavBtn page="accountHeads" icon={BookOpen} label={t.accountHeads || 'Account Heads'} />
+            <NavBtn page="transactionList" icon={List} label={t.transactions || 'Transactions'} />
+            <NavBtn page="addTransaction" icon={PlusCircle} label={t.addTransaction || 'Add Transaction'} />
           </>
         )}
 
         {/* ── Accountant Navigation ── */}
         {isAccountant && (
           <>
-            <NavBtn page="accountantDashboard" icon={BarChart3} label="Dashboard" />
-            <NavBtn page="accountHeads" icon={BookOpen} label="Account Heads" />
-            <NavBtn page="addTransaction" icon={PlusCircle} label="Add Transaction" />
-            <NavBtn page="transactionList" icon={List} label="Transactions" />
+            <NavBtn page="accountantDashboard" icon={BarChart3} label={t.accountantDashboard || 'Dashboard'} />
+            <NavBtn page="accountHeads" icon={BookOpen} label={t.accountHeads || 'Account Heads'} />
+            <NavBtn page="addTransaction" icon={PlusCircle} label={t.addTransaction || 'Add Transaction'} />
+            <NavBtn page="transactionList" icon={List} label={t.transactions || 'Transactions'} />
           </>
         )}
 
@@ -53,7 +56,7 @@ export default function Sidebar({ isAdmin, isAccountant, currentPage, setCurrent
           <>
             <NavBtn page="myProfile" icon={User} label={t.myProfile} />
             <NavBtn page="payment" icon={DollarSign} label={t.makePayment} />
-            <NavBtn page="myDonations" icon={Gift} label="My Donations" />
+            <NavBtn page="myDonations" icon={Gift} label={t.myDonations || 'My Donations'} />
           </>
         )}
       </nav>

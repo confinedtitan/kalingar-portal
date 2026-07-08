@@ -195,7 +195,7 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 # Trust branding config — used in receipt PDF generation
 TRUST_CONFIG = {
-    'name': 'Kalinga Temple Trust',
+    'name': 'Sri Ramalakshmi Amman Thirukoil, Arumuganeri',
     'address': '',  # Fill in with actual trust address
     'logo_path': None,  # Optional: absolute path to logo image file
 }

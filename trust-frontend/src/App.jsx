@@ -21,6 +21,7 @@ import AccountHeadsPage from './pages/AccountHeadsPage';
 import TransactionFormPage from './pages/TransactionFormPage';
 import TransactionListPage from './pages/TransactionListPage';
 import MyDonationsPage from './pages/MyDonationsPage';
+import ChangePasswordPage from './pages/ChangePasswordPage';
 import MemberDetailsModal from './components/MemberDetailsModal';
 import { translations } from './data/translations';
 import { styles } from './utils/styles';
@@ -46,6 +47,11 @@ export default function App() {
   const [memberToReset, setMemberToReset] = useState(null);
 
   const t = translations[language];
+
+  // Update browser tab title dynamically when language changes
+  useEffect(() => {
+    document.title = t.appTitle || 'Temple Portal';
+  }, [t.appTitle]);
 
   const showNotification = (message) => {
     setNotification(message);
@@ -95,7 +101,8 @@ export default function App() {
           // Try fetching members list — if token is valid this succeeds
           await memberAPI.getAll();
           
-          if (savedIsAdmin !== 'true') {
+          const savedIsAccountant = localStorage.getItem('is_accountant');
+          if (savedIsAdmin !== 'true' && savedIsAccountant !== 'true') {
             try {
               const memberResponse = await memberAPI.getMe();
               setCurrentUser(memberResponse.data);
@@ -134,10 +141,11 @@ export default function App() {
       localStorage.setItem('is_admin', data.is_admin);
       localStorage.setItem('is_accountant', data.role === 'ACCOUNTANT');
 
-      // Check if password reset is required
+      // Notify user to change their password (but don't force/block them)
       if (data.password_reset_required && !data.is_admin) {
         setPasswordResetRequired(true);
-        setShowPasswordChange(true);
+        // Redirect to change password page instead of forcing a modal
+        // They can dismiss and change later via the sidebar
       }
 
       if (data.role === 'ACCOUNTANT') {
@@ -449,6 +457,11 @@ export default function App() {
               <MyDonationsPage member={currentUser} t={t} />
             )}
 
+            {/* ── Change Password — available to ALL user roles ── */}
+            {currentPage === 'changePassword' && (
+              <ChangePasswordPage t={t} language={language} />
+            )}
+
             {currentPage === 'payment' && !isAdmin && !isAccountant && (
               <PaymentPage
                 member={currentUser}
@@ -469,18 +482,8 @@ export default function App() {
           </Modal>
         )}
 
-        {showPasswordChange && passwordResetRequired && (
-          <ChangePassword
-            isForced={passwordResetRequired}
-            onClose={() => setShowPasswordChange(false)}
-            onSuccess={() => {
-              setPasswordResetRequired(false);
-              setShowPasswordChange(false);
-              showNotification('Password changed successfully!');
-            }}
-            t={t}
-          />
-        )}
+
+
 
         {showResetPasswordModal && memberToReset && (
           <ResetPasswordModal

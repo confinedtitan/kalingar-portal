@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { styles } from '../utils/styles';
+import { formatDate } from '../utils/dateFormatter';
 
 export default function PaymentPage({ member, t, onMakePayment }) {
   const pendingTaxes = (member.taxes || []).filter(tax => Number(tax.amount_due) > 0);
@@ -54,7 +55,7 @@ export default function PaymentPage({ member, t, onMakePayment }) {
               }}>
                 <div>
                   <h3 style={{ margin: 0, color: '#1e293b', fontSize: '18px', fontWeight: '700' }}>{tax.tax_name}</h3>
-                  <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748b' }}>Tax Generated on {new Date(tax.created_at || Date.now()).toLocaleDateString()}</p>
+                  <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748b' }}>Tax Generated on {formatDate(tax.created_at || Date.now())}</p>
                 </div>
                 {selectedTax?.id !== tax.id && (
                   <button 

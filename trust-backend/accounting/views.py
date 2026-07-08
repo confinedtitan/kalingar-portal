@@ -463,18 +463,22 @@ def _build_export_response(request, account_heads, filename):
 
         # --- Income sheet ---
         ws_income = wb.create_sheet(title=f"{safe_name} Inc")
+        ws_income.cell(row=1, column=1, value='ஸ்ரீ ராமஜெயம் | Sri Ramajeyam').font = Font(bold=True, size=14, color='D97706')
+        ws_income.merge_cells('A1:L1')
+        ws_income.cell(row=1, column=1).alignment = Alignment(horizontal='center')
+
         income_headers = [
-            'Date', 'Donor Name', 'Contact', 'Member ID', 'Member Name',
-            'Amount', 'Payment Mode', 'Purpose/Remarks', 'Receipt No', 'Entered By',
+            'Date', 'Donor Name', 'Donor Name (Tamil)', 'Contact', 'Member ID', 'Member Name',
+            'Amount', 'Payment Mode', 'Purpose/Remarks', 'Purpose/Remarks (Tamil)', 'Receipt No', 'Entered By',
         ]
         for col, hdr in enumerate(income_headers, 1):
-            cell = ws_income.cell(row=1, column=col, value=hdr)
+            cell = ws_income.cell(row=2, column=col, value=hdr)
             cell.font = header_font
             cell.fill = header_fill
             cell.alignment = header_align
             cell.border = thin_border
 
-        for row_idx, txn in enumerate(income_txns, 2):
+        for row_idx, txn in enumerate(income_txns, 3):
             entered_name = _get_display_name(txn.entered_by)
             receipt_no = ''
             try:
@@ -485,12 +489,14 @@ def _build_export_response(request, account_heads, filename):
             vals = [
                 txn.transaction_date.strftime('%Y-%m-%d'),
                 txn.donor_name,
+                txn.donor_name_ta,
                 txn.donor_contact,
                 txn.member.member_id if txn.member else '',
                 txn.member.name if txn.member else '',
                 float(txn.amount),
                 txn.payment_mode,
                 txn.purpose,
+                txn.purpose_ta,
                 receipt_no,
                 entered_name,
             ]
@@ -500,18 +506,22 @@ def _build_export_response(request, account_heads, filename):
 
         # --- Expense sheet ---
         ws_expense = wb.create_sheet(title=f"{safe_name} Exp")
+        ws_expense.cell(row=1, column=1, value='ஸ்ரீ ராமஜெயம் | Sri Ramajeyam').font = Font(bold=True, size=14, color='D97706')
+        ws_expense.merge_cells('A1:K1')
+        ws_expense.cell(row=1, column=1).alignment = Alignment(horizontal='center')
+
         expense_headers = [
-            'Date', 'Paid To', 'Purpose/Description', 'Amount',
-            'Payment Mode', 'Bill Reference', 'Receipt No', 'Entered By',
+            'Date', 'Paid To', 'Paid To (Tamil)', 'Purpose/Description', 'Purpose/Description (Tamil)',
+            'Amount', 'Payment Mode', 'Bill Reference', 'Receipt No', 'Entered By',
         ]
         for col, hdr in enumerate(expense_headers, 1):
-            cell = ws_expense.cell(row=1, column=col, value=hdr)
+            cell = ws_expense.cell(row=2, column=col, value=hdr)
             cell.font = header_font
             cell.fill = header_fill
             cell.alignment = header_align
             cell.border = thin_border
 
-        for row_idx, txn in enumerate(expense_txns, 2):
+        for row_idx, txn in enumerate(expense_txns, 3):
             entered_name = _get_display_name(txn.entered_by)
             receipt_no = ''
             try:
@@ -522,7 +532,9 @@ def _build_export_response(request, account_heads, filename):
             vals = [
                 txn.transaction_date.strftime('%Y-%m-%d'),
                 txn.paid_to,
+                txn.paid_to_ta,
                 txn.purpose_description,
+                txn.purpose_description_ta,
                 float(txn.amount),
                 txn.payment_mode,
                 txn.bill_reference,
@@ -539,18 +551,24 @@ def _build_export_response(request, account_heads, filename):
         start_color='059669', end_color='059669', fill_type='solid',
     )
 
-    ws_summary.cell(row=1, column=1, value='Account Head Report Summary').font = Font(
-        bold=True, size=14,
+    ws_summary.cell(row=1, column=1, value='ஸ்ரீ ராமஜெயம் | Sri Ramajeyam').font = Font(
+        bold=True, size=14, color='D97706',
     )
     ws_summary.merge_cells('A1:D1')
+    ws_summary.cell(row=1, column=1).alignment = Alignment(horizontal='center')
+
+    ws_summary.cell(row=2, column=1, value='Account Head Report Summary').font = Font(
+        bold=True, size=14,
+    )
+    ws_summary.merge_cells('A2:D2')
 
     date_range_str = ''
     if date_from or date_to:
         date_range_str = f"From: {date_from or 'Start'} — To: {date_to or 'Present'}"
-        ws_summary.cell(row=2, column=1, value=date_range_str)
-        ws_summary.merge_cells('A2:D2')
+        ws_summary.cell(row=3, column=1, value=date_range_str)
+        ws_summary.merge_cells('A3:D3')
 
-    start_row = 4
+    start_row = 5
     for col, hdr in enumerate(
         ['Account Head', 'Total Income', 'Total Expense', 'Net Balance'], 1,
     ):
@@ -600,11 +618,14 @@ def _build_export_response(request, account_heads, filename):
     for ws in wb.worksheets:
         for col in ws.columns:
             max_len = 0
-            col_letter = col[0].column_letter
+            col_letter = None
             for cell in col:
+                if hasattr(cell, 'column_letter'):
+                    col_letter = cell.column_letter
                 if cell.value:
                     max_len = max(max_len, len(str(cell.value)))
-            ws.column_dimensions[col_letter].width = min(max_len + 4, 40)
+            if col_letter:
+                ws.column_dimensions[col_letter].width = min(max_len + 4, 40)
 
     # Build response
     from io import BytesIO

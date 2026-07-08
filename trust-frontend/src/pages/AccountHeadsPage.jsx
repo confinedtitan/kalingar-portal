@@ -1,13 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { styles } from '../utils/styles';
 import { accountingAPI } from '../services/api';
+import { formatDate } from '../utils/dateFormatter';
+import { useTamilInput } from '../utils/useTamilInput';
+
+// Language tag badge (mirrors AddMemberPage.jsx)
+const langTag = (text) => (
+  <span style={{
+    display: 'inline-block', fontSize: '10px', fontWeight: '600',
+    padding: '2px 6px', borderRadius: '4px', marginLeft: '6px', verticalAlign: 'middle',
+    background: text === 'EN' ? '#dbeafe' : '#fef3c7',
+    color: text === 'EN' ? '#1d4ed8' : '#92400e',
+  }}>{text}</span>
+);
 
 export default function AccountHeadsPage({ isAdmin, t }) {
   const [heads, setHeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingHead, setEditingHead] = useState(null);
-  const [form, setForm] = useState({ name: '', description: '', head_type: '' });
+  const [form, setForm] = useState({ name: '', name_ta: '', description: '', description_ta: '', head_type: '' });
+
+  // Tamil input hooks
+  const setNameTa = useCallback((v) => setForm(prev => ({ ...prev, name_ta: v })), []);
+  const setDescTa  = useCallback((v) => setForm(prev => ({ ...prev, description_ta: v })), []);
+  const nameTaProps = useTamilInput(form.name_ta, setNameTa);
+  const descTaProps  = useTamilInput(form.description_ta, setDescTa);
 
   const fetchHeads = async () => {
     try {
@@ -32,7 +50,7 @@ export default function AccountHeadsPage({ isAdmin, t }) {
       }
       setShowForm(false);
       setEditingHead(null);
-      setForm({ name: '', description: '', head_type: '' });
+      setForm({ name: '', name_ta: '', description: '', description_ta: '', head_type: '' });
       fetchHeads();
     } catch (err) {
       console.error('Error saving account head:', err);
@@ -45,7 +63,13 @@ export default function AccountHeadsPage({ isAdmin, t }) {
 
   const handleEdit = (head) => {
     setEditingHead(head);
-    setForm({ name: head.name, description: head.description || '', head_type: head.head_type || '' });
+    setForm({
+      name: head.name,
+      name_ta: head.name_ta || '',
+      description: head.description || '',
+      description_ta: head.description_ta || '',
+      head_type: head.head_type || '',
+    });
     setShowForm(true);
   };
 
@@ -89,9 +113,9 @@ export default function AccountHeadsPage({ isAdmin, t }) {
   return (
     <div style={styles.page}>
       <div style={styles.pageHeader}>
-        <h2 style={styles.pageTitle}>📁 Account Heads</h2>
+        <h2 style={styles.pageTitle}>📁 {t.accountHeads || 'Account Heads'}</h2>
         <button
-          onClick={() => { setEditingHead(null); setForm({ name: '', description: '', head_type: '' }); setShowForm(true); }}
+          onClick={() => { setEditingHead(null); setForm({ name: '', name_ta: '', description: '', description_ta: '', head_type: '' }); setShowForm(true); }}
           style={{ ...styles.exportButton, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
         >
           ➕ New Account Head
@@ -104,7 +128,7 @@ export default function AccountHeadsPage({ isAdmin, t }) {
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
         }}>
-          <div style={{ ...cardBase, width: '100%', maxWidth: '480px' }}>
+          <div style={{ ...cardBase, width: '100%', maxWidth: '560px', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700' }}>
                 {editingHead ? 'Edit Account Head' : 'New Account Head'}
@@ -113,32 +137,49 @@ export default function AccountHeadsPage({ isAdmin, t }) {
                 style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#6b7280' }}>✕</button>
             </div>
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Name (English) */}
               <div style={styles.formGroup}>
-                <label style={styles.formLabel}>Name *</label>
+                <label style={styles.formLabel}>{t.accountHeadName || 'Account Head Name'} {langTag('EN')} *</label>
                 <input
                   type="text" required value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   style={styles.formInput} placeholder="e.g. Kovil Kodai 2026"
                 />
               </div>
+              {/* Name (Tamil) */}
+              <div style={styles.formGroup}>
+                <label style={styles.formLabel}>{t.accountHeadNameTamil || 'Account Head Name (Tamil)'} {langTag('தமிழ்')}</label>
+                <input
+                  type="text" value={form.name_ta}
+                  {...nameTaProps}
+                  style={styles.formInput} placeholder="Tamil name (type in Tamil mode)"
+                />
+              </div>
+              {/* Type */}
               <div style={styles.formGroup}>
                 <label style={styles.formLabel}>Type</label>
-                <select
-                  value={form.head_type}
-                  onChange={(e) => setForm({ ...form, head_type: e.target.value })}
-                  style={styles.formInput}
-                >
+                <select value={form.head_type} onChange={(e) => setForm({ ...form, head_type: e.target.value })} style={styles.formInput}>
                   <option value="">Select type (optional)</option>
                   <option value="Event">Event</option>
                   <option value="Recurring">Recurring</option>
                   <option value="General">General</option>
                 </select>
               </div>
+              {/* Description (English) */}
               <div style={styles.formGroup}>
-                <label style={styles.formLabel}>Description</label>
+                <label style={styles.formLabel}>{t.description || 'Description'} {langTag('EN')}</label>
                 <textarea
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  style={styles.formTextarea} rows={3}
+                />
+              </div>
+              {/* Description (Tamil) */}
+              <div style={styles.formGroup}>
+                <label style={styles.formLabel}>{t.descriptionTamil || 'Description (Tamil)'} {langTag('தமிழ்')}</label>
+                <textarea
+                  value={form.description_ta}
+                  {...descTaProps}
                   style={styles.formTextarea} rows={3}
                 />
               </div>
@@ -155,18 +196,24 @@ export default function AccountHeadsPage({ isAdmin, t }) {
         <table style={styles.table}>
           <thead>
             <tr>
-              <th style={styles.th}>Name</th>
-              <th style={styles.th}>Type</th>
-              <th style={styles.th}>Status</th>
-              <th style={styles.th}>Created By</th>
-              <th style={styles.th}>Created</th>
-              <th style={styles.th}>Actions</th>
+              <th style={styles.th}>{t.memberName || 'Name'}</th>
+              <th style={styles.th}>{t.type || 'Type'}</th>
+              <th style={styles.th}>{t.status}</th>
+              <th style={styles.th}>{t.createdBy || 'Created By'}</th>
+              <th style={styles.th}>{t.created || 'Created'}</th>
+              <th style={styles.th}>{t.actions}</th>
             </tr>
           </thead>
           <tbody>
             {heads.map((head) => (
               <tr key={head.id} style={styles.tr}>
-                <td style={{ ...styles.td, fontWeight: '600' }}>{head.name}</td>
+                <td style={{ ...styles.td, fontWeight: '600' }}>
+                  {head.name}
+                  {/* Always show Tamil name as subtitle when non-empty — never conditional on UI language */}
+                  {head.name_ta && (
+                    <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{head.name_ta}</div>
+                  )}
+                </td>
                 <td style={styles.td}>
                   {head.head_type ? (
                     <span style={{
@@ -177,12 +224,12 @@ export default function AccountHeadsPage({ isAdmin, t }) {
                 </td>
                 <td style={styles.td}>
                   <span style={head.is_active ? styles.statusPaid : styles.statusPending}>
-                    {head.is_active ? 'Active' : 'Inactive'}
+                    {head.is_active ? (t.active || 'Active') : (t.inactive || 'Inactive')}
                   </span>
                 </td>
                 <td style={styles.td}>{head.created_by_name || '—'}</td>
                 <td style={{ ...styles.td, fontSize: '12px', color: '#6b7280' }}>
-                  {head.created_at ? new Date(head.created_at).toLocaleDateString() : ''}
+                  {head.created_at ? formatDate(head.created_at) : ''}
                 </td>
                 <td style={styles.td}>
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { styles } from '../utils/styles';
+import { formatDate } from '../utils/dateFormatter';
 
 export default function MyProfilePage({ member, t, onChangePassword }) {
   const [showPasswordForm, setShowPasswordForm] = useState(false);
@@ -88,7 +89,7 @@ export default function MyProfilePage({ member, t, onChangePassword }) {
             </div>
             <div style={styles.profileField}>
               <label>{t.dateOfBirth}</label>
-              <div>{member.date_of_birth ?? member.dob}</div>
+              <div>{formatDate(member.date_of_birth ?? member.dob)}</div>
             </div>
             <div style={styles.profileField}>
               <label>{t.addressEnglish || t.address}</label>
@@ -147,7 +148,7 @@ export default function MyProfilePage({ member, t, onChangePassword }) {
               <strong>{t.children}:</strong>
               {member.children.map((child, index) => (
                 <div key={index} style={styles.profileChildItem}>
-                  {child.name} ({child.gender}) - {child.date_of_birth ?? child.dob} - {child.marital_status || 'Unmarried'}
+                  {child.name} ({child.gender}) - {formatDate(child.date_of_birth ?? child.dob)} - {child.marital_status || 'Unmarried'}
                 </div>
               ))}
             </div>
@@ -220,7 +221,7 @@ export default function MyProfilePage({ member, t, onChangePassword }) {
                   {member.transactions.map(txn => (
                     <tr key={txn.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                       <td style={{ padding: '8px' }}>{txn.receipt_number}</td>
-                      <td style={{ padding: '8px' }}>{new Date(txn.payment_date).toLocaleDateString()}</td>
+                      <td style={{ padding: '8px' }}>{formatDate(txn.payment_date)}</td>
                       <td style={{ padding: '8px' }}>{txn.transaction_type}</td>
                       <td style={{ padding: '8px', color: txn.transaction_type === 'Payment' ? '#10b981' : '#6b7280' }}>
                         ₹{txn.amount}

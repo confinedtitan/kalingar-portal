@@ -35,9 +35,12 @@ class MemberSerializer(serializers.ModelSerializer):
     children = ChildSerializer(many=True, read_only=True)
     taxes = MemberTaxSerializer(many=True, read_only=True)
     transactions = TransactionSerializer(many=True, read_only=True)
-    payment_status = serializers.ReadOnlyField()
+    amount_due = serializers.SerializerMethodField()
+    annual_tax = serializers.SerializerMethodField()
+    amount_paid = serializers.SerializerMethodField()
+    payment_status = serializers.SerializerMethodField()
     username = serializers.CharField(source='user.username', read_only=True)
-    
+
     class Meta:  # type: ignore[assignment]
         model = Member
         fields = [
@@ -51,6 +54,33 @@ class MemberSerializer(serializers.ModelSerializer):
             'is_active', 'password_reset_required', 'children', 'taxes', 'transactions', 'created_at', 'updated_at'
         ]
         read_only_fields = ['member_id', 'amount_due', 'password_reset_required', 'created_at', 'updated_at']
+
+    def get_amount_due(self, obj):
+        taxes = getattr(obj, 'taxes', None)
+        if taxes and taxes.exists():
+            return sum(tax.amount_due for tax in taxes.all())
+        return obj.amount_due
+
+    def get_annual_tax(self, obj):
+        taxes = getattr(obj, 'taxes', None)
+        if taxes and taxes.exists():
+            return sum(tax.total_tax for tax in taxes.all())
+        return obj.annual_tax
+
+    def get_amount_paid(self, obj):
+        taxes = getattr(obj, 'taxes', None)
+        if taxes and taxes.exists():
+            return sum(tax.amount_paid for tax in taxes.all())
+        return obj.amount_paid
+
+    def get_payment_status(self, obj):
+        due = self.get_amount_due(obj)
+        paid = self.get_amount_paid(obj)
+        if due <= 0:
+            return "Paid"
+        elif paid > 0:
+            return "Partial"
+        return "Pending"
 
 
 class MemberCreateSerializer(serializers.ModelSerializer):
@@ -126,15 +156,18 @@ class MemberUpdateSerializer(serializers.ModelSerializer):
 
 class MemberListSerializer(serializers.ModelSerializer):
     """Simplified serializer for member list view"""
-    payment_status = serializers.ReadOnlyField()
+    payment_status = serializers.SerializerMethodField()
     children_count = serializers.SerializerMethodField()
     children = ChildSerializer(many=True, read_only=True)
     taxes = MemberTaxSerializer(many=True, read_only=True)
+    amount_due = serializers.SerializerMethodField()
+    annual_tax = serializers.SerializerMethodField()
+    amount_paid = serializers.SerializerMethodField()
     
     class Meta:  # type: ignore[assignment]
         model = Member
         fields = [
-            'id', 'member_id', 'name', 'name_ta', 'phone', 'annual_tax',
+            'id', 'member_id', 'name', 'name_ta', 'phone', 'annual_tax', 'date_of_birth',
             'amount_paid', 'amount_due', 'payment_status',
             'father_name', 'father_name_ta',
             'mother_name', 'mother_name_ta',
@@ -144,6 +177,33 @@ class MemberListSerializer(serializers.ModelSerializer):
     
     def get_children_count(self, obj):
         return obj.children.count()
+
+    def get_amount_due(self, obj):
+        taxes = getattr(obj, 'taxes', None)
+        if taxes and taxes.exists():
+            return sum(tax.amount_due for tax in taxes.all())
+        return obj.amount_due
+
+    def get_annual_tax(self, obj):
+        taxes = getattr(obj, 'taxes', None)
+        if taxes and taxes.exists():
+            return sum(tax.total_tax for tax in taxes.all())
+        return obj.annual_tax
+
+    def get_amount_paid(self, obj):
+        taxes = getattr(obj, 'taxes', None)
+        if taxes and taxes.exists():
+            return sum(tax.amount_paid for tax in taxes.all())
+        return obj.amount_paid
+
+    def get_payment_status(self, obj):
+        due = self.get_amount_due(obj)
+        paid = self.get_amount_paid(obj)
+        if due <= 0:
+            return "Paid"
+        elif paid > 0:
+            return "Partial"
+        return "Pending"
 
 
 class UserLoginSerializer(serializers.Serializer):

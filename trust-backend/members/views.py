@@ -9,6 +9,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 
 from .models import Member, Child, Announcement, Event, Meeting, TaxMaster, MemberTax, Transaction
+from accounting.models import StaffProfile
 from .serializers import (
     MemberSerializer, MemberCreateSerializer, MemberUpdateSerializer,
     MemberListSerializer, ChildSerializer, UserLoginSerializer,
@@ -120,13 +121,16 @@ class MemberViewSet(viewsets.ModelViewSet):
             )
         
         from django.http import HttpResponse
-        import csv
-        
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="members.csv"'
-        
-        writer = csv.writer(response)
-        writer.writerow([
+        import openpyxl
+        from openpyxl.styles import Font
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        if ws is None:
+            ws = wb.create_sheet()
+        ws.title = "Members"
+
+        headers = [
             'Member ID', 'Name', 'Name (Tamil)',
             'Phone', 'DOB',
             'Address', 'Address (Tamil)',
@@ -135,15 +139,22 @@ class MemberViewSet(viewsets.ModelViewSet):
             'Spouse Name', 'Spouse Name (Tamil)',
             'Children',
             'Annual Tax', 'Amount Paid', 'Amount Due', 'Status'
-        ])
-        
+        ]
+
+        ws.append(headers)
+
+        # Format header row: bold and freeze pane
+        for cell in ws[1]:
+            cell.font = Font(bold=True)
+        ws.freeze_panes = 'A2'
+
         members = Member.objects.prefetch_related('children').all()
         for member in members:
             children_list = '; '.join([
-                f"{c.name} ({c.date_of_birth}, {c.gender})"
+                f"{c.name} ({c.date_of_birth.strftime('%d/%m/%Y') if c.date_of_birth else ''}, {c.gender})"
                 for c in member.children.all()
             ])
-            writer.writerow([
+            row = [
                 member.member_id,
                 member.name, member.name_ta,
                 member.phone,
@@ -155,8 +166,39 @@ class MemberViewSet(viewsets.ModelViewSet):
                 children_list,
                 member.annual_tax, member.amount_paid, member.amount_due,
                 member.payment_status
-            ])
-        
+            ]
+            ws.append(row)
+
+            # Format DOB cell (column 5) as Excel date
+            dob_cell = ws.cell(row=ws.max_row, column=5)
+            if dob_cell.value:
+                dob_cell.number_format = 'DD/MM/YYYY'
+
+        # Auto-size columns based on content length
+        from openpyxl.utils import get_column_letter
+        for col_idx, col in enumerate(ws.columns, start=1):
+            max_length = 0
+            column_letter = get_column_letter(col_idx)
+            for cell in col:
+                try:
+                    if cell.value:
+                        cell_len = len(str(cell.value))
+                        if cell_len > max_length:
+                            max_length = cell_len
+                except Exception:
+                    pass
+            
+            adjusted_width = max_length + 2
+            # Set reasonable min and max bounds for column width
+            adjusted_width = max(10, min(adjusted_width, 50))
+            ws.column_dimensions[column_letter].width = adjusted_width
+
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="members.xlsx"'
+        wb.save(response)
+
         return response
 
     @action(detail=False, methods=['post'], url_path='import-excel',
@@ -256,7 +298,6 @@ class AuthViewSet(viewsets.ViewSet):
                 except Member.DoesNotExist:
                     # Check for StaffProfile (e.g. Accountant)
                     try:
-                        from accounting.models import StaffProfile
                         staff = StaffProfile.objects.get(user=user)
                         if not staff.is_active:
                             return Response(
