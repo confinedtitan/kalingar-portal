@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { styles } from '../utils/styles';
 import api from '../services/api';
 import { formatDate } from '../utils/dateFormatter';
+import { Edit2 } from 'lucide-react';
 
 export default function TaxManagementPage({ t }) {
   const [taxes, setTaxes] = useState([]);
@@ -14,6 +15,9 @@ export default function TaxManagementPage({ t }) {
     base_amount: 1000,
     description: ''
   });
+
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editTaxId, setEditTaxId] = useState(null);
 
   useEffect(() => {
     fetchTaxes();
@@ -36,15 +40,39 @@ export default function TaxManagementPage({ t }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/members/taxes/', formData);
-      setSuccess(t.taxCreatedSuccess || 'Tax created successfully');
+      if (isEditMode) {
+        await api.put(`/members/taxes/${editTaxId}/`, formData);
+        setSuccess(t.taxUpdatedSuccess || 'Tax event updated successfully');
+        setIsEditMode(false);
+        setEditTaxId(null);
+      } else {
+        await api.post('/members/taxes/', formData);
+        setSuccess(t.taxCreatedSuccess || 'Tax created successfully');
+      }
       setFormData({ name: '', base_amount: 1000, description: '' });
       fetchTaxes();
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      setError(t.taxCreatedError || 'Failed to create tax');
+      setError(isEditMode ? (t.taxUpdateError || 'Failed to update tax event') : (t.taxCreatedError || 'Failed to create tax'));
       setTimeout(() => setError(null), 3000);
     }
+  };
+
+  const handleEditClick = (tax) => {
+    if (tax.status === 'Generated') return;
+    setIsEditMode(true);
+    setEditTaxId(tax.id);
+    setFormData({
+      name: tax.name,
+      base_amount: tax.base_amount,
+      description: tax.description || ''
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditMode(false);
+    setEditTaxId(null);
+    setFormData({ name: '', base_amount: 1000, description: '' });
   };
 
   const handleGenerateTaxes = async (taxId) => {
@@ -54,6 +82,7 @@ export default function TaxManagementPage({ t }) {
       setLoading(true);
       const res = await api.post('/members/taxes/generate_taxes/', { tax_id: taxId });
       setSuccess(res.data?.message || res.message || 'Taxes generated successfully');
+      fetchTaxes();
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(t.taxGeneratedError || 'Failed to generate taxes');
@@ -73,7 +102,9 @@ export default function TaxManagementPage({ t }) {
       {success && <div style={{ ...styles.alert, ...styles.alertSuccess }}>{success}</div>}
       
       <div style={styles.card}>
-        <h3 style={styles.cardTitle}>{t.createNewTaxEvent || 'Create New Tax Event'}</h3>
+        <h3 style={styles.cardTitle}>
+          {isEditMode ? (t.editTaxEvent || 'Edit Tax Event') : (t.createNewTaxEvent || 'Create New Tax Event')}
+        </h3>
         <form onSubmit={handleSubmit} style={styles.form}>
           <div style={styles.formGrid}>
             <div style={styles.formGroup}>
@@ -111,9 +142,24 @@ export default function TaxManagementPage({ t }) {
             />
           </div>
           
-          <button type="submit" style={styles.submitButton}>
-            {t.createTaxEventBtn || 'Create Tax Event'}
-          </button>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button type="submit" style={styles.submitButton}>
+              {isEditMode ? (t.updateTaxEventBtn || 'Update Tax Event') : (t.createTaxEventBtn || 'Create Tax Event')}
+            </button>
+            {isEditMode && (
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                style={{
+                  ...styles.submitButton,
+                  background: '#ef4444',
+                  color: 'white'
+                }}
+              >
+                {t.cancelBtn || 'Cancel'}
+              </button>
+            )}
+          </div>
         </form>
       </div>
 
@@ -125,6 +171,8 @@ export default function TaxManagementPage({ t }) {
               <tr>
                 <th style={styles.th}>{t.thName || 'Name'}</th>
                 <th style={styles.th}>{t.thBaseAmount || 'Base Amount'}</th>
+                <th style={styles.th}>{t.status || 'Status'}</th>
+                <th style={styles.th}>{t.generatedDate || 'Generated Date'}</th>
                 <th style={styles.th}>{t.thCreatedAt || 'Created At'}</th>
                 <th style={styles.th}>{t.thActions || 'Actions'}</th>
               </tr>
@@ -134,20 +182,61 @@ export default function TaxManagementPage({ t }) {
                 <tr key={tax.id}>
                   <td style={styles.td}>{tax.name}</td>
                   <td style={styles.td}>₹{tax.base_amount}</td>
+                  <td style={styles.td}>
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      backgroundColor: tax.status === 'Generated' ? '#def7ec' : '#e1effe',
+                      color: tax.status === 'Generated' ? '#03543f' : '#1e429f'
+                    }}>
+                      {tax.status || 'Open'}
+                    </span>
+                  </td>
+                  <td style={styles.td}>{tax.generated_date ? formatDate(tax.generated_date) : '-'}</td>
                   <td style={styles.td}>{formatDate(tax.created_at)}</td>
                   <td style={styles.td}>
-                    <button 
-                      onClick={() => handleGenerateTaxes(tax.id)}
-                      style={{ ...styles.actionButton, background: '#2563eb', color: 'white' }}
-                    >
-                      {t.generateForAllMembers || 'Generate for All Members'}
-                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <button
+                        onClick={() => handleEditClick(tax)}
+                        disabled={tax.status === 'Generated'}
+                        title={tax.status === 'Generated' ? 'Cannot edit generated tax' : 'Edit tax'}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          padding: '6px',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: tax.status === 'Generated' ? 'not-allowed' : 'pointer',
+                          backgroundColor: tax.status === 'Generated' ? '#f3f4f6' : '#e5e7eb',
+                          color: tax.status === 'Generated' ? '#9ca3af' : '#4b5563',
+                        }}
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      
+                      {tax.status !== 'Generated' ? (
+                        <button 
+                          onClick={() => handleGenerateTaxes(tax.id)}
+                          style={{ ...styles.actionButton, background: '#2563eb', color: 'white' }}
+                        >
+                          {t.generateForAllMembers || 'Generate for All Members'}
+                        </button>
+                      ) : (
+                        <span style={{ fontSize: '13px', color: '#6b7280', fontWeight: 'bold' }}>
+                          ✓ Generated
+                        </span>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
               {taxes.length === 0 && (
                 <tr>
-                  <td colSpan="4" style={{ ...styles.td, textAlign: 'center' }}>{t.noTaxEvents || 'No tax events found.'}</td>
+                  <td colSpan="6" style={{ ...styles.td, textAlign: 'center' }}>{t.noTaxEvents || 'No tax events found.'}</td>
                 </tr>
               )}
             </tbody>

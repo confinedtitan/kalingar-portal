@@ -480,7 +480,23 @@ class TaxMasterViewSet(viewsets.ModelViewSet):
         except TaxMaster.DoesNotExist:
             return Response({'error': 'TaxMaster not found'}, status=status.HTTP_404_NOT_FOUND)
             
+        if tax_master.status == 'Generated':
+            return Response({'error': 'Taxes have already been generated for this event'}, status=status.HTTP_400_BAD_REQUEST)
+            
         from decimal import Decimal
+        from django.utils import timezone
+        from accounting.models import AccountHead, AccountTransaction
+        
+        # Get or create the AccountHead 'Tax Kodai'
+        account_head, _ = AccountHead.objects.get_or_create(
+            name='Tax Kodai',
+            defaults={
+                'head_type': 'Event',
+                'is_active': True,
+                'created_by': request.user if request.user.is_authenticated else None
+            }
+        )
+        
         members = Member.objects.filter(is_active=True)
         created_count = 0
         for member in members:
@@ -505,6 +521,26 @@ class TaxMasterViewSet(viewsets.ModelViewSet):
             if created:
                 created_count += 1
                 
+            # Create account debit/bill entry (Income type transaction) for the member
+            if total_tax > 0:
+                AccountTransaction.objects.create(
+                    account_head=account_head,
+                    transaction_type='INCOME',
+                    amount=total_tax,
+                    transaction_date=timezone.now().date(),
+                    payment_mode='Cash',
+                    member=member,
+                    donor_name=member.name,
+                    donor_contact=member.phone or '',
+                    purpose=f"Tax Kodai: {tax_master.name}",
+                    entered_by=request.user
+                )
+                
+        # Update tax event status and generated date
+        tax_master.status = 'Generated'
+        tax_master.generated_date = timezone.now().date()
+        tax_master.save()
+        
         return Response({'message': f'Generated {created_count} new taxes for {tax_master.name}'})
 
 class MemberTaxViewSet(viewsets.ReadOnlyModelViewSet):

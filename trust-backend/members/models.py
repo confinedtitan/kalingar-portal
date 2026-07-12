@@ -182,6 +182,8 @@ class TaxMaster(models.Model):
     description = models.TextField(blank=True, default='')
     base_amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Base Tax Amount per Count")
     is_active = models.BooleanField(default=True)
+    status = models.CharField(max_length=20, choices=[('Open', 'Open'), ('Generated', 'Generated')], default='Open')
+    generated_date = models.DateField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
