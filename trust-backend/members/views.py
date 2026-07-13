@@ -508,7 +508,7 @@ class TaxMasterViewSet(viewsets.ModelViewSet):
                     else:
                         tax_count += Decimal('1.0')
             
-            total_tax = tax_count * tax_master.base_amount
+            total_tax = (tax_count * tax_master.base_amount).quantize(Decimal('0.00'))
             
             obj, created = MemberTax.objects.update_or_create(
                 member=member,
