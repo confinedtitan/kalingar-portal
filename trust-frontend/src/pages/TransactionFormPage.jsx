@@ -13,11 +13,17 @@ const langTag = (text) => (
   }}>{text}</span>
 );
 
+import api from '../services/api';
+
 export default function TransactionFormPage({ t, onSuccess }) {
   const [heads, setHeads] = useState([]);
   const [members, setMembers] = useState([]);
+  const [trustAccounts, setTrustAccounts] = useState([]);
+  const [measurementUnit, setMeasurementUnit] = useState('Grams');
   const [form, setForm] = useState({
     account_head: '',
+    trust_account: '',
+    commodity_type: '',
     transaction_type: 'CREDIT',
     amount: '',
     transaction_date: new Date().toISOString().split('T')[0],
@@ -40,7 +46,7 @@ export default function TransactionFormPage({ t, onSuccess }) {
 
   // Inline account head creation
   const [showNewHead, setShowNewHead] = useState(false);
-  const [newHead, setNewHead] = useState({ name: '', name_ta: '', head_type: '', description: '', description_ta: '' });
+  const [newHead, setNewHead] = useState({ name: '', name_ta: '', head_type: '', description: '', description_ta: '', account_type: 'Revenue' });
 
   // ── Tamil input hooks (mirrors AddMemberPage pattern exactly) ──
   const setDonorNameTa       = useCallback((v) => setForm(prev => ({ ...prev, donor_name_ta: v })), []);
@@ -71,6 +77,13 @@ export default function TransactionFormPage({ t, onSuccess }) {
         setMembers(data);
       })
       .catch(console.error);
+
+    api.get('/accounting/trust-accounts/?status=Active')
+      .then((res) => {
+        const data = Array.isArray(res.data) ? res.data : res.data?.results || [];
+        setTrustAccounts(data);
+      })
+      .catch(console.error);
   }, []);
 
   const handleCreateHead = async () => {
@@ -81,7 +94,7 @@ export default function TransactionFormPage({ t, onSuccess }) {
       setHeads((prev) => [created, ...prev]);
       setForm((prev) => ({ ...prev, account_head: String(created.id) }));
       setShowNewHead(false);
-      setNewHead({ name: '', name_ta: '', head_type: '', description: '', description_ta: '' });
+      setNewHead({ name: '', name_ta: '', head_type: 'Kodai', description: '', description_ta: '', account_type: 'Revenue' });
     } catch (err) {
       alert('Failed to create account head.');
     }
@@ -93,14 +106,56 @@ export default function TransactionFormPage({ t, onSuccess }) {
       alert('Please select an Account Head.');
       return;
     }
+    if (form.payment_mode !== 'Credit' && !form.trust_account) {
+      alert('Please select a Trust Account.');
+      return;
+    }
     setSubmitting(true);
     try {
       const data = new FormData();
+      
+      // Determine purpose texts with commodity units
+      let purposeText = form.purpose;
+      let purposeTaText = form.purpose_ta;
+      let purposeDescText = form.purpose_description;
+      let purposeDescTaText = form.purpose_description_ta;
+
+      if (form.payment_mode === 'Commodities') {
+        const suffix = ` [Unit: ${measurementUnit}]`;
+        const suffixTa = ` [அலகு: ${measurementUnit}]`;
+        if (form.transaction_type === 'CREDIT') {
+          if (purposeText) {
+            purposeText += suffix;
+          } else {
+            purposeText = `Commodity unit: ${measurementUnit}`;
+          }
+          if (purposeTaText) purposeTaText += suffixTa;
+        } else {
+          if (purposeDescText) {
+            purposeDescText += suffix;
+          } else {
+            purposeDescText = `Commodity unit: ${measurementUnit}`;
+          }
+          if (purposeDescTaText) purposeDescTaText += suffixTa;
+        }
+      }
+
       Object.entries(form).forEach(([key, val]) => {
         if (val !== '' && val !== null && val !== undefined) {
-          data.append(key, val);
+          if (key === 'purpose') {
+            data.append(key, purposeText);
+          } else if (key === 'purpose_ta') {
+            data.append(key, purposeTaText);
+          } else if (key === 'purpose_description') {
+            data.append(key, purposeDescText);
+          } else if (key === 'purpose_description_ta') {
+            data.append(key, purposeDescTaText);
+          } else {
+            data.append(key, val);
+          }
         }
       });
+
       if (proofFile) {
         data.append('proof_document', proofFile);
       }
@@ -112,6 +167,8 @@ export default function TransactionFormPage({ t, onSuccess }) {
       setSuccess(res.data);
       setForm({
         account_head: '',
+        trust_account: '',
+        commodity_type: '',
         transaction_type: 'CREDIT',
         amount: '',
         transaction_date: new Date().toISOString().split('T')[0],
@@ -207,13 +264,12 @@ export default function TransactionFormPage({ t, onSuccess }) {
               value={form.member}
               onChange={(e) => {
                 const memberId = e.target.value;
-                const selectedMem = members.find(m => String(m.id) === String(memberId));
                 setForm(prev => ({
                   ...prev,
                   member: memberId,
-                  donor_name: selectedMem ? selectedMem.name : prev.donor_name,
-                  donor_name_ta: selectedMem ? (selectedMem.name_ta || '') : prev.donor_name_ta,
-                  donor_contact: selectedMem ? (selectedMem.phone || '') : prev.donor_contact,
+                  donor_name: '',
+                  donor_name_ta: '',
+                  donor_contact: '',
                 }));
               }}
               style={styles.formInput}
@@ -302,8 +358,7 @@ export default function TransactionFormPage({ t, onSuccess }) {
                   style={styles.formInput}
                 >
                   <option value="">Type</option>
-                  <option value="Event">Event</option>
-                  <option value="Recurring">Recurring</option>
+                  <option value="Kodai">Kodai</option>
                   <option value="General">General</option>
                 </select>
               </div>
@@ -342,9 +397,11 @@ export default function TransactionFormPage({ t, onSuccess }) {
         {/* Core fields */}
         <div style={styles.formGrid}>
           <div style={styles.formGroup}>
-            <label style={styles.formLabel}>{t.amount || 'Amount'} (₹) *</label>
+            <label style={styles.formLabel}>
+              {form.payment_mode === 'Commodities' ? (t.quantityWeight || 'Quantity (Weight)') : (t.amount || 'Amount')} *
+            </label>
             <input
-              type="number" step="0.01" min="0.01" required
+              type="number" step="any" min="0.0001" required
               value={form.amount}
               onChange={(e) => setForm({ ...form, amount: e.target.value })}
               style={styles.formInput} placeholder="0.00"
@@ -363,7 +420,15 @@ export default function TransactionFormPage({ t, onSuccess }) {
             <label style={styles.formLabel}>{t.paymentMode || 'Payment Mode'} *</label>
             <select
               value={form.payment_mode}
-              onChange={(e) => setForm({ ...form, payment_mode: e.target.value })}
+              onChange={(e) => {
+                const mode = e.target.value;
+                setForm(prev => ({
+                  ...prev,
+                  payment_mode: mode,
+                  trust_account: '',
+                  commodity_type: mode === 'Commodities' ? 'Gold' : '',
+                }));
+              }}
               style={styles.formInput}
             >
               <option value="Cash">{t.cash || 'Cash'}</option>
@@ -371,42 +436,108 @@ export default function TransactionFormPage({ t, onSuccess }) {
               <option value="UPI">UPI</option>
               <option value="Cheque">{t.cheque || 'Cheque'}</option>
               <option value="Credit">{t.credit || 'Credit'}</option>
+              <option value="Commodities">{t.commodities || 'Commodities'}</option>
             </select>
           </div>
         </div>
+
+        {/* Dynamic Fields row: Trust Account & Commodities properties */}
+        {(form.payment_mode !== 'Credit' || form.payment_mode === 'Commodities') && (
+          <div style={{ ...styles.formGrid, marginTop: '16px', marginBottom: '24px' }}>
+            {form.payment_mode !== 'Credit' && (
+              <div style={styles.formGroup}>
+                <label style={styles.formLabel}>{t.trustAccount || 'Trust Account'} *</label>
+                <select
+                  required
+                  value={form.trust_account}
+                  onChange={(e) => setForm({ ...form, trust_account: e.target.value })}
+                  style={styles.formInput}
+                >
+                  <option value="">Select Trust Account</option>
+                  {trustAccounts
+                    .filter(acc => {
+                      if (form.payment_mode === 'Cash') return acc.account_type === 'Cash';
+                      if (['Bank Transfer', 'UPI', 'Cheque'].includes(form.payment_mode)) return acc.account_type === 'Bank';
+                      if (form.payment_mode === 'Commodities') return acc.account_type === 'Commodities';
+                      return false;
+                    })
+                    .map(acc => (
+                      <option key={acc.account_id} value={acc.account_id}>
+                        {acc.account_name} ({acc.account_type})
+                      </option>
+                    ))}
+                </select>
+              </div>
+            )}
+
+            {form.payment_mode === 'Commodities' && (
+              <>
+                <div style={styles.formGroup}>
+                  <label style={styles.formLabel}>{t.commodityType || 'Commodity Type'} *</label>
+                  <select
+                    required
+                    value={form.commodity_type}
+                    onChange={(e) => setForm({ ...form, commodity_type: e.target.value })}
+                    style={styles.formInput}
+                  >
+                    <option value="Gold">Gold</option>
+                    <option value="Silver">Silver</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <div style={styles.formGroup}>
+                  <label style={styles.formLabel}>{t.measurementUnit || 'Measurement Unit'} *</label>
+                  <select
+                    required
+                    value={measurementUnit}
+                    onChange={(e) => setMeasurementUnit(e.target.value)}
+                    style={styles.formInput}
+                  >
+                    <option value="Grams">Grams</option>
+                    <option value="Ounces">Ounces</option>
+                    <option value="Sovereigns">Sovereigns</option>
+                  </select>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* Conditional fields based on type */}
         {isIncome ? (
           <div style={{ marginTop: '24px' }}>
             <h4 style={{ ...styles.subsectionTitle, color: '#059669' }}>💰 {t.incomeDetails || 'Income / Donor Details'}</h4>
-            <div style={styles.formGrid}>
-              {/* Donor Name (English) */}
-              <div style={styles.formGroup}>
-                <label style={styles.formLabel}>{t.donorName || 'Donor Name'} {langTag('EN')}</label>
-                <input
-                  type="text" value={form.donor_name}
-                  onChange={(e) => setForm({ ...form, donor_name: e.target.value })}
-                  style={styles.formInput}
-                />
+            {!form.member && (
+              <div style={styles.formGrid}>
+                {/* Donor Name (English) */}
+                <div style={styles.formGroup}>
+                  <label style={styles.formLabel}>{t.donorName || 'Donor Name'} {langTag('EN')}</label>
+                  <input
+                    type="text" value={form.donor_name}
+                    onChange={(e) => setForm({ ...form, donor_name: e.target.value })}
+                    style={styles.formInput}
+                  />
+                </div>
+                {/* Donor Name (Tamil) */}
+                <div style={styles.formGroup}>
+                  <label style={styles.formLabel}>{t.donorNameTamil || 'Donor Name (Tamil)'} {langTag('தமிழ்')}</label>
+                  <input
+                    type="text" value={form.donor_name_ta}
+                    {...donorNameTaProps}
+                    style={styles.formInput}
+                  />
+                </div>
+                <div style={styles.formGroup}>
+                  <label style={styles.formLabel}>{t.donorContact || 'Donor Contact'}</label>
+                  <input
+                    type="text" value={form.donor_contact}
+                    onChange={(e) => setForm({ ...form, donor_contact: e.target.value })}
+                    style={styles.formInput}
+                  />
+                </div>
               </div>
-              {/* Donor Name (Tamil) */}
-              <div style={styles.formGroup}>
-                <label style={styles.formLabel}>{t.donorNameTamil || 'Donor Name (Tamil)'} {langTag('தமிழ்')}</label>
-                <input
-                  type="text" value={form.donor_name_ta}
-                  {...donorNameTaProps}
-                  style={styles.formInput}
-                />
-              </div>
-              <div style={styles.formGroup}>
-                <label style={styles.formLabel}>{t.donorContact || 'Donor Contact'}</label>
-                <input
-                  type="text" value={form.donor_contact}
-                  onChange={(e) => setForm({ ...form, donor_contact: e.target.value })}
-                  style={styles.formInput}
-                />
-              </div>
-            </div>
+            )}
             {/* Purpose (English) */}
             <div style={styles.formGroup}>
               <label style={styles.formLabel}>{t.purpose || 'Purpose / Remarks'} {langTag('EN')}</label>

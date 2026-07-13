@@ -212,10 +212,11 @@ def generate_receipt_pdf(transaction):
     elements.append(Spacer(1, 6 * mm))
 
     # --- Details table ---
+    is_commodity = transaction.payment_mode == 'Commodities'
     detail_rows = [
         ('Account Head', transaction.account_head.name),
-        ('Amount', f"₹ {transaction.amount:,.2f}"),
-        ('Payment Mode', transaction.get_payment_mode_display()),
+        ('Quantity (Weight)' if is_commodity else 'Amount', f"{transaction.amount:,.2f}" if is_commodity else f"₹ {transaction.amount:,.2f}"),
+        ('Payment Mode', f"Commodities ({transaction.commodity_type})" if is_commodity else transaction.get_payment_mode_display()),
     ]
 
     if transaction.transaction_type == 'CREDIT':

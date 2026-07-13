@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Users, Plus, DollarSign, GitBranch, User, FileText, BookOpen, List, PlusCircle, BarChart3, Gift, KeyRound } from 'lucide-react';
+import { Home, Users, Plus, DollarSign, GitBranch, User, FileText, BookOpen, List, PlusCircle, BarChart3, Gift, KeyRound, Briefcase } from 'lucide-react';
 import { styles } from '../utils/styles';
 
 export default function Sidebar({ isAdmin, isAccountant, currentPage, setCurrentPage, t }) {
@@ -36,8 +36,10 @@ export default function Sidebar({ isAdmin, isAccountant, currentPage, setCurrent
               {t.accounting || 'Accounting'}
             </div>
             <NavBtn page="accountHeads" icon={BookOpen} label={t.accountHeads || 'Account Heads'} />
+            <NavBtn page="trustAccounts" icon={Briefcase} label={t.trustAccounts || 'Trust Accounts'} />
             <NavBtn page="transactionList" icon={List} label={t.transactions || 'Transactions'} />
             <NavBtn page="addTransaction" icon={PlusCircle} label={t.addTransaction || 'Add Transaction'} />
+            <NavBtn page="reports" icon={BarChart3} label={t.reports || 'Reports'} />
           </>
         )}
 
@@ -46,8 +48,10 @@ export default function Sidebar({ isAdmin, isAccountant, currentPage, setCurrent
           <>
             <NavBtn page="accountantDashboard" icon={BarChart3} label={t.accountantDashboard || 'Dashboard'} />
             <NavBtn page="accountHeads" icon={BookOpen} label={t.accountHeads || 'Account Heads'} />
+            <NavBtn page="trustAccounts" icon={Briefcase} label={t.trustAccounts || 'Trust Accounts'} />
             <NavBtn page="addTransaction" icon={PlusCircle} label={t.addTransaction || 'Add Transaction'} />
             <NavBtn page="transactionList" icon={List} label={t.transactions || 'Transactions'} />
+            <NavBtn page="reports" icon={BarChart3} label={t.reports || 'Reports'} />
           </>
         )}
 

@@ -71,8 +71,7 @@ class AccountHead(models.Model):
     """
 
     TYPE_CHOICES = [
-        ('Event', 'Event'),
-        ('Recurring', 'Recurring'),
+        ('Kodai', 'Kodai'),
         ('General', 'General'),
     ]
 
@@ -113,6 +112,68 @@ class AccountHead(models.Model):
 
 
 # ---------------------------------------------------------------------------
+# TrustAccount — manages actual liquid assets or physical vaults
+# ---------------------------------------------------------------------------
+
+import uuid
+
+class TrustAccount(models.Model):
+    ACCOUNT_TYPE_CHOICES = [
+        ('Cash', 'Cash'),
+        ('Bank', 'Bank'),
+        ('Commodities', 'Commodities'),
+    ]
+    ENTITY_TYPE_CHOICES = [
+        ('Trust_Direct', 'Trust Direct'),
+        ('Member', 'Member'),
+        ('Member_Family', 'Member Family'),
+    ]
+    STATUS_CHOICES = [
+        ('Active', 'Active'),
+        ('Inactive', 'Inactive'),
+    ]
+
+    account_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    account_name = models.CharField(max_length=255, verbose_name="Account Name")
+    account_type = models.CharField(max_length=20, choices=ACCOUNT_TYPE_CHOICES, verbose_name="Account Type")
+    associated_entity_type = models.CharField(max_length=20, choices=ENTITY_TYPE_CHOICES, verbose_name="Associated Entity Type")
+    
+    member = models.ForeignKey(
+        'members.Member', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='trust_accounts', verbose_name="Custodian Member"
+    )
+    family_member = models.ForeignKey(
+        'members.Child', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='trust_accounts', verbose_name="Custodian Family Member"
+    )
+    
+    account_number = models.CharField(max_length=100, blank=True, default='', verbose_name="Account Number")
+    bank_name = models.CharField(max_length=255, blank=True, default='', verbose_name="Bank Name")
+    branch_name = models.CharField(max_length=255, blank=True, default='', verbose_name="Branch Name")
+    
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Active', verbose_name="Status")
+    created_date = models.DateTimeField(auto_now_add=True, verbose_name="Created Date")
+    deactivated_date = models.DateTimeField(null=True, blank=True, verbose_name="Deactivated Date")
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='created_trust_accounts', verbose_name="Created By"
+    )
+
+    class Meta:
+        ordering = ['account_name']
+        verbose_name = "Trust Account"
+        verbose_name_plural = "Trust Accounts"
+
+    def __str__(self):
+        return f"{self.account_name} ({self.account_type})"
+
+    def clean(self):
+        if self.account_type == 'Bank':
+            if not self.account_number or not self.bank_name or not self.branch_name:
+                raise ValidationError("Bank fields (account number, bank name, branch name) are strictly mandatory for Bank account types.")
+
+
+# ---------------------------------------------------------------------------
 # AccountTransaction — income / expense record under an AccountHead
 # ---------------------------------------------------------------------------
 
@@ -134,6 +195,7 @@ class AccountTransaction(models.Model):
         ('UPI', 'UPI'),
         ('Cheque', 'Cheque'),
         ('Credit', 'Credit'),
+        ('Commodities', 'Commodities'),
     ]
 
     # Core fields
@@ -146,6 +208,11 @@ class AccountTransaction(models.Model):
         null=True, blank=True, related_name='accounting_transactions',
         help_text="Link to the tax event this transaction relates to."
     )
+    trust_account = models.ForeignKey(
+        TrustAccount, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='transactions',
+        verbose_name="Trust Account"
+    )
     transaction_type = models.CharField(
         max_length=10, choices=TRANSACTION_TYPE_CHOICES,
     )
@@ -153,6 +220,10 @@ class AccountTransaction(models.Model):
     transaction_date = models.DateField()
     payment_mode = models.CharField(
         max_length=20, choices=PAYMENT_MODE_CHOICES,
+    )
+    commodity_type = models.CharField(
+        max_length=20, choices=[('Gold', 'Gold'), ('Silver', 'Silver'), ('Other', 'Other')],
+        blank=True, default='', verbose_name="Commodity Type"
     )
 
     # --- Income-specific fields ---

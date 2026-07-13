@@ -23,6 +23,8 @@ import TransactionListPage from './pages/TransactionListPage';
 import AccountHeadStatementPage from './pages/AccountHeadStatementPage';
 import MyDonationsPage from './pages/MyDonationsPage';
 import ChangePasswordPage from './pages/ChangePasswordPage';
+import TrustAccountsPage from './pages/TrustAccountsPage';
+import ReportsPage from './pages/ReportsPage';
 import MemberDetailsModal from './components/MemberDetailsModal';
 import { translations } from './data/translations';
 import { styles } from './utils/styles';
@@ -459,6 +461,14 @@ export default function App() {
 
             {currentPage === 'transactionList' && (isAdmin || isAccountant) && (
               <TransactionListPage isAdmin={isAdmin} t={t} />
+            )}
+
+            {currentPage === 'trustAccounts' && (isAdmin || isAccountant) && (
+              <TrustAccountsPage t={t} isAdmin={isAdmin} isAccountant={isAccountant} />
+            )}
+
+            {currentPage === 'reports' && (isAdmin || isAccountant) && (
+              <ReportsPage t={t} />
             )}
 
             {/* ── Member Pages ── */}

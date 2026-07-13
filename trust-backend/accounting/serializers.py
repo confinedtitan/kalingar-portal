@@ -133,6 +133,23 @@ class AccountHeadSerializer(serializers.ModelSerializer):
         else:
             return str(credits - debits)
 
+from .models import TrustAccount
+
+class TrustAccountSerializer(serializers.ModelSerializer):
+    member_name = serializers.CharField(source='member.name', read_only=True, default='')
+    family_member_name = serializers.CharField(source='family_member.name', read_only=True, default='')
+    created_by_name = serializers.CharField(source='created_by.username', read_only=True, default='')
+    
+    class Meta:
+        model = TrustAccount
+        fields = [
+            'account_id', 'account_name', 'account_type', 'associated_entity_type',
+            'member', 'member_name', 'family_member', 'family_member_name',
+            'account_number', 'bank_name', 'branch_name',
+            'status', 'created_date', 'deactivated_date', 'created_by', 'created_by_name'
+        ]
+        read_only_fields = ['account_id', 'created_date', 'deactivated_date', 'created_by']
+
 
 # ---------------------------------------------------------------------------
 # AccountTransaction
@@ -161,14 +178,18 @@ class AccountTransactionSerializer(serializers.ModelSerializer):
     tax_event_name = serializers.CharField(
         source='tax_event.name', read_only=True, default=None,
     )
+    trust_account_name = serializers.CharField(
+        source='trust_account.account_name', read_only=True, default=None,
+    )
 
     class Meta:
         model = AccountTransaction
         fields = [
             'id', 'account_head', 'account_head_name',
             'tax_event', 'tax_event_name',
+            'trust_account', 'trust_account_name',
             'transaction_type', 'amount', 'transaction_date',
-            'payment_mode',
+            'payment_mode', 'commodity_type',
             # Income fields
             'donor_name', 'donor_name_ta', 'donor_contact', 'member', 'member_name',
             'member_id_display', 'purpose', 'purpose_ta',
@@ -205,8 +226,8 @@ class AccountTransactionCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = AccountTransaction
         fields = [
-            'account_head', 'tax_event', 'transaction_type', 'amount',
-            'transaction_date', 'payment_mode',
+            'account_head', 'tax_event', 'trust_account', 'transaction_type', 'amount',
+            'transaction_date', 'payment_mode', 'commodity_type',
             'donor_name', 'donor_name_ta', 'donor_contact', 'member', 'purpose', 'purpose_ta',
             'paid_to', 'paid_to_ta', 'purpose_description', 'purpose_description_ta', 'bill_reference',
             'proof_document',
@@ -232,6 +253,31 @@ class AccountTransactionCreateSerializer(serializers.ModelSerializer):
                 "Cannot create a transaction under a deactivated Account Head."
             )
         return value
+
+    def validate(self, attrs):
+        payment_mode = attrs.get('payment_mode')
+        trust_account = attrs.get('trust_account')
+        commodity_type = attrs.get('commodity_type')
+
+        if trust_account:
+            if payment_mode == 'Cash' and trust_account.account_type != 'Cash':
+                raise serializers.ValidationError({"trust_account": "Selected trust account must be of type Cash when payment mode is Cash."})
+            elif payment_mode in ['Bank Transfer', 'UPI', 'Cheque'] and trust_account.account_type != 'Bank':
+                raise serializers.ValidationError({"trust_account": "Selected trust account must be of type Bank when payment mode is digital/check."})
+            elif payment_mode == 'Commodities' and trust_account.account_type != 'Commodities':
+                raise serializers.ValidationError({"trust_account": "Selected trust account must be of type Commodities when payment mode is Commodities."})
+
+        if payment_mode == 'Commodities' and not commodity_type:
+            raise serializers.ValidationError({"commodity_type": "Commodity Type is required when payment mode is Commodities."})
+
+        # Dynamic validation logic for member vs donor names
+        member = attrs.get('member')
+        if member:
+            attrs['donor_name'] = member.name
+            attrs['donor_name_ta'] = member.name_ta or ''
+            attrs['donor_contact'] = member.phone or ''
+            
+        return attrs
 
 
 # ---------------------------------------------------------------------------

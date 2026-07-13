@@ -23,12 +23,12 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 
-from .models import StaffProfile, AccountHead, AccountTransaction, Receipt
+from .models import StaffProfile, AccountHead, AccountTransaction, Receipt, TrustAccount
 from .serializers import (
     StaffProfileSerializer, StaffProfileCreateSerializer,
     AccountHeadSerializer,
     AccountTransactionSerializer, AccountTransactionCreateSerializer,
-    ReceiptSerializer,
+    ReceiptSerializer, TrustAccountSerializer,
 )
 from .permissions import IsAccountantOrAdmin, IsAdmin
 
@@ -64,6 +64,80 @@ class StaffProfileViewSet(viewsets.ModelViewSet):
         profile.is_active = True
         profile.save()
         return Response({'message': f'{profile.name} activated.'})
+
+
+# ---------------------------------------------------------------------------
+# TrustAccount
+# ---------------------------------------------------------------------------
+
+class TrustAccountViewSet(viewsets.ModelViewSet):
+    """
+    Trust Accounts management ViewSet.
+    """
+    queryset = TrustAccount.objects.all()
+    serializer_class = TrustAccountSerializer
+    permission_classes = [permissions.IsAuthenticated, IsAccountantOrAdmin]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['account_type', 'status', 'associated_entity_type']
+    search_fields = ['account_name', 'account_number', 'bank_name']
+    ordering_fields = ['account_name', 'created_date']
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def deactivate(self, request, pk=None):
+        """Deactivate a trust account."""
+        account = self.get_object()
+        account.status = 'Inactive'
+        account.deactivated_date = timezone.now()
+        account.save()
+        return Response({'message': f'"{account.account_name}" deactivated.', 'deactivated_date': account.deactivated_date})
+
+    @action(detail=True, methods=['post'])
+    def activate(self, request, pk=None):
+        """Re-activate a trust account."""
+        account = self.get_object()
+        account.status = 'Active'
+        account.deactivated_date = None
+        account.save()
+        return Response({'message': f'"{account.account_name}" activated.'})
+
+    @action(detail=True, methods=['get'])
+    def ledger(self, request, pk=None):
+        """Ledger statement: Chronological list of transactions and running balance."""
+        account = self.get_object()
+        txns = AccountTransaction.objects.filter(
+            trust_account=account, is_deleted=False
+        ).order_by('transaction_date', 'id')
+        
+        data = []
+        balance = Decimal('0')
+        for t in txns:
+            if t.transaction_type == 'DEBIT':
+                balance += t.amount
+            else:
+                balance -= t.amount
+                
+            data.append({
+                'id': t.id,
+                'transaction_date': str(t.transaction_date),
+                'transaction_type': t.transaction_type,
+                'amount': str(t.amount),
+                'payment_mode': t.payment_mode,
+                'commodity_type': t.commodity_type,
+                'donor_name': t.donor_name or (t.member.name if t.member else ''),
+                'donor_name_ta': t.donor_name_ta or (t.member.name_ta if t.member else ''),
+                'paid_to': t.paid_to,
+                'purpose': t.purpose or t.purpose_description,
+                'receipt_number': t.receipt.receipt_number if hasattr(t, 'receipt') and t.receipt else None,
+                'running_balance': str(balance)
+            })
+        return Response({
+            'account_name': account.account_name,
+            'account_type': account.account_type,
+            'transactions': data
+        })
 
 
 # ---------------------------------------------------------------------------
@@ -208,7 +282,7 @@ class AccountTransactionViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = AccountTransaction.objects.select_related(
-            'account_head', 'entered_by', 'member', 'receipt',
+            'account_head', 'entered_by', 'member', 'receipt', 'trust_account'
         )
         # By default exclude soft-deleted; admin can include them
         include_deleted = self.request.query_params.get('include_deleted')
@@ -222,6 +296,33 @@ class AccountTransactionViewSet(viewsets.ModelViewSet):
             qs = qs.filter(transaction_date__gte=date_from)
         if date_to:
             qs = qs.filter(transaction_date__lte=date_to)
+
+        # Trust Account filter
+        trust_acct = self.request.query_params.get('trust_account')
+        if trust_acct:
+            qs = qs.filter(trust_account_id=trust_acct)
+
+        # Head type multi-filter (comma-separated, e.g. General,Kodai)
+        head_types = self.request.query_params.get('head_types')
+        if head_types:
+            types = [t.strip() for t in head_types.split(',') if t.strip()]
+            qs = qs.filter(account_head__head_type__in=types)
+
+        # Account type multi-filter (comma-separated, e.g. Revenue,Expense)
+        account_types = self.request.query_params.get('account_types')
+        if account_types:
+            types = [t.strip() for t in account_types.split(',') if t.strip()]
+            qs = qs.filter(account_head__account_type__in=types)
+
+        # Bank ledger filter
+        is_bank = self.request.query_params.get('is_bank')
+        if is_bank == 'true':
+            qs = qs.filter(trust_account__account_type='Bank')
+
+        # Cash ledger filter
+        is_cash = self.request.query_params.get('is_cash')
+        if is_cash == 'true':
+            qs = qs.filter(trust_account__account_type='Cash')
 
         return qs
 
@@ -307,6 +408,84 @@ class AccountTransactionViewSet(viewsets.ModelViewSet):
             'net_balance': str(total_credits - total_debits),
             'total_transactions': qs.count(),
         })
+
+    @action(detail=False, methods=['get'], url_path='commodity-summary')
+    def commodity_summary(self, request):
+        """
+        Natively calculates and summarizes physical weight assets: Gold and Silver,
+        alongside fiat currency.
+        """
+        qs = AccountTransaction.objects.filter(is_deleted=False)
+        
+        # Fiat summary (exclude Commodities payment mode)
+        fiat_credits = qs.filter(transaction_type='CREDIT').exclude(payment_mode='Commodities').aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        fiat_debits = qs.filter(transaction_type='DEBIT').exclude(payment_mode='Commodities').aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        
+        # Gold physical weight summary (payment_mode='Commodities', commodity_type='Gold')
+        gold_credits = qs.filter(payment_mode='Commodities', commodity_type='Gold', transaction_type='CREDIT').aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        gold_debits = qs.filter(payment_mode='Commodities', commodity_type='Gold', transaction_type='DEBIT').aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        
+        # Silver physical weight summary (payment_mode='Commodities', commodity_type='Silver')
+        silver_credits = qs.filter(payment_mode='Commodities', commodity_type='Silver', transaction_type='CREDIT').aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        silver_debits = qs.filter(payment_mode='Commodities', commodity_type='Silver', transaction_type='DEBIT').aggregate(total=Sum('amount'))['total'] or Decimal('0')
+
+        # Other physical weight summary
+        other_credits = qs.filter(payment_mode='Commodities', commodity_type='Other', transaction_type='CREDIT').aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        other_debits = qs.filter(payment_mode='Commodities', commodity_type='Other', transaction_type='DEBIT').aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        
+        return Response({
+            'fiat': {
+                'total_credits': str(fiat_credits),
+                'total_debits': str(fiat_debits),
+                'net_balance': str(fiat_credits - fiat_debits),
+            },
+            'gold': {
+                'total_credits': str(gold_credits),
+                'total_debits': str(gold_debits),
+                'net_balance': str(gold_credits - gold_debits),
+            },
+            'silver': {
+                'total_credits': str(silver_credits),
+                'total_debits': str(silver_debits),
+                'net_balance': str(silver_credits - silver_debits),
+            },
+            'other': {
+                'total_credits': str(other_credits),
+                'total_debits': str(other_debits),
+                'net_balance': str(other_credits - other_debits),
+            }
+        })
+
+    @action(detail=False, methods=['get'], url_path='member-balances')
+    def member_balances(self, request):
+        """
+        Roster of all members showing their Name and their exact running financial balance.
+        Balance = Cumulative DEBIT (due/billed) - Cumulative CREDIT (paid).
+        """
+        from members.models import Member
+        members = Member.objects.filter(is_active=True).order_by('name')
+        
+        data = []
+        for m in members:
+            debits = AccountTransaction.objects.filter(
+                member=m, transaction_type='DEBIT', is_deleted=False
+            ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+            
+            credits = AccountTransaction.objects.filter(
+                member=m, transaction_type='CREDIT', is_deleted=False
+            ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+            
+            data.append({
+                'id': m.id,
+                'member_id': m.member_id,
+                'name': m.name,
+                'name_ta': m.name_ta,
+                'phone': m.phone,
+                'total_debits': str(debits),
+                'total_credits': str(credits),
+                'running_balance': str(debits - credits)
+            })
+        return Response(data)
 
     @action(detail=False, methods=['get'], url_path='my-donations')
     def my_donations(self, request):
