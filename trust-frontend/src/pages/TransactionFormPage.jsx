@@ -335,6 +335,7 @@ export default function TransactionFormPage({ t, onSuccess }) {
               <option value="Bank Transfer">{t.bankTransfer || 'Bank Transfer'}</option>
               <option value="UPI">UPI</option>
               <option value="Cheque">{t.cheque || 'Cheque'}</option>
+              <option value="Credit">{t.credit || 'Credit'}</option>
             </select>
           </div>
         </div>

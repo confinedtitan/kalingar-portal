@@ -135,6 +135,7 @@ export const translations = {
     cash: 'Cash',
     bankTransfer: 'Bank Transfer',
     cheque: 'Cheque',
+    credit: 'Credit',
     // Table headers & status labels
     active: 'Active',
     inactive: 'Inactive',
@@ -317,6 +318,7 @@ export const translations = {
     cash: 'ரொக்கம்',
     bankTransfer: 'வங்கி பரிமாற்றம்',
     cheque: 'காசோலை',
+    credit: 'வரவு',
     // Table headers & status labels
     active: 'செயல்பாடுள்ளது',
     inactive: 'செயலழித்தது',

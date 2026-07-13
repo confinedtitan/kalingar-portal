@@ -528,7 +528,7 @@ class TaxMasterViewSet(viewsets.ModelViewSet):
                     transaction_type='INCOME',
                     amount=total_tax,
                     transaction_date=timezone.now().date(),
-                    payment_mode='Cash',
+                    payment_mode='Credit',
                     member=member,
                     donor_name=member.name,
                     donor_contact=member.phone or '',

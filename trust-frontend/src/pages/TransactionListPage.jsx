@@ -58,7 +58,7 @@ export default function TransactionListPage({ isAdmin, t }) {
         </select>
         <select value={filters.payment_mode} onChange={e => setFilters({...filters, payment_mode: e.target.value})} style={styles.filterSelect}>
           <option value="">All Modes</option><option value="Cash">Cash</option><option value="Bank Transfer">Bank Transfer</option>
-          <option value="UPI">UPI</option><option value="Cheque">Cheque</option>
+          <option value="UPI">UPI</option><option value="Cheque">Cheque</option><option value="Credit">Credit</option>
         </select>
         <div style={{ display:'flex', gap:'8px', alignItems:'center' }}>
           <input type="date" value={filters.from} onChange={e => setFilters({...filters, from: e.target.value})} style={{...styles.formInput, padding:'8px 12px', fontSize:'13px'}} />

@@ -122,6 +122,7 @@ class AccountTransaction(models.Model):
         ('Bank Transfer', 'Bank Transfer'),
         ('UPI', 'UPI'),
         ('Cheque', 'Cheque'),
+        ('Credit', 'Credit'),
     ]
 
     # Core fields
