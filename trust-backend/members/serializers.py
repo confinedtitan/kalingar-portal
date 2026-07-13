@@ -11,6 +11,8 @@ class ChildSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'name_ta', 'date_of_birth', 'gender', 'marital_status']
 
 class TaxMasterSerializer(serializers.ModelSerializer):
+    account_head_name = serializers.CharField(source='account_head.name', read_only=True, default=None)
+    
     class Meta:  # type: ignore[assignment]
         model = TaxMaster
         fields = '__all__'

@@ -9,11 +9,13 @@ export default function TaxManagementPage({ t }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [accountHeads, setAccountHeads] = useState([]);
   
   const [formData, setFormData] = useState({
     name: '',
     base_amount: 1000,
-    description: ''
+    description: '',
+    account_head: ''
   });
 
   const [isEditMode, setIsEditMode] = useState(false);
@@ -21,7 +23,18 @@ export default function TaxManagementPage({ t }) {
 
   useEffect(() => {
     fetchTaxes();
+    fetchAccountHeads();
   }, []);
+
+  const fetchAccountHeads = async () => {
+    try {
+      const res = await api.get('/accounting/account-heads/?is_active=true');
+      const data = Array.isArray(res.data) ? res.data : res.data?.results || [];
+      setAccountHeads(data);
+    } catch (err) {
+      console.error('Failed to load account heads', err);
+    }
+  };
 
   const fetchTaxes = async () => {
     try {
@@ -40,16 +53,20 @@ export default function TaxManagementPage({ t }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const payload = {
+        ...formData,
+        account_head: formData.account_head || null
+      };
       if (isEditMode) {
-        await api.put(`/members/taxes/${editTaxId}/`, formData);
+        await api.put(`/members/taxes/${editTaxId}/`, payload);
         setSuccess(t.taxUpdatedSuccess || 'Tax event updated successfully');
         setIsEditMode(false);
         setEditTaxId(null);
       } else {
-        await api.post('/members/taxes/', formData);
+        await api.post('/members/taxes/', payload);
         setSuccess(t.taxCreatedSuccess || 'Tax created successfully');
       }
-      setFormData({ name: '', base_amount: 1000, description: '' });
+      setFormData({ name: '', base_amount: 1000, description: '', account_head: '' });
       fetchTaxes();
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -65,14 +82,15 @@ export default function TaxManagementPage({ t }) {
     setFormData({
       name: tax.name,
       base_amount: tax.base_amount,
-      description: tax.description || ''
+      description: tax.description || '',
+      account_head: tax.account_head ? String(tax.account_head) : ''
     });
   };
 
   const handleCancelEdit = () => {
     setIsEditMode(false);
     setEditTaxId(null);
-    setFormData({ name: '', base_amount: 1000, description: '' });
+    setFormData({ name: '', base_amount: 1000, description: '', account_head: '' });
   };
 
   const handleGenerateTaxes = async (taxId) => {
@@ -129,6 +147,20 @@ export default function TaxManagementPage({ t }) {
                 onChange={(e) => setFormData({ ...formData, base_amount: parseInt(e.target.value) || 0 })}
                 style={styles.formInput}
               />
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={styles.formLabel}>{t.accountHead || 'Account Head'}</label>
+              <select
+                value={formData.account_head}
+                onChange={(e) => setFormData({ ...formData, account_head: e.target.value })}
+                style={styles.formInput}
+              >
+                <option value="">{t.selectAccountHead || 'Select Account Head'}</option>
+                {accountHeads.map((h) => (
+                  <option key={h.id} value={h.id}>{h.name}{h.name_ta ? ` / ${h.name_ta}` : ''}</option>
+                ))}
+              </select>
             </div>
           </div>
           

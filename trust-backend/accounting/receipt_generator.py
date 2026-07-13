@@ -189,7 +189,7 @@ def generate_receipt_pdf(transaction):
 
     # --- Receipt type ---
     receipt_label = (
-        'DONATION RECEIPT' if transaction.transaction_type == 'INCOME'
+        'DONATION RECEIPT' if transaction.transaction_type == 'CREDIT'
         else 'PAYMENT VOUCHER'
     )
     elements.append(Paragraph(receipt_label, receipt_type_style))
@@ -218,7 +218,7 @@ def generate_receipt_pdf(transaction):
         ('Payment Mode', transaction.get_payment_mode_display()),
     ]
 
-    if transaction.transaction_type == 'INCOME':
+    if transaction.transaction_type == 'CREDIT':
         detail_rows.append(('Donor Name', transaction.donor_name or '—'))
         detail_rows.append(('Contact', transaction.donor_contact or '—'))
         if transaction.member:

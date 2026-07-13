@@ -14,12 +14,12 @@ const langTag = (text) => (
   }}>{text}</span>
 );
 
-export default function AccountHeadsPage({ isAdmin, t }) {
+export default function AccountHeadsPage({ isAdmin, t, onSelectHead }) {
   const [heads, setHeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingHead, setEditingHead] = useState(null);
-  const [form, setForm] = useState({ name: '', name_ta: '', description: '', description_ta: '', head_type: '' });
+  const [form, setForm] = useState({ name: '', name_ta: '', description: '', description_ta: '', head_type: '', account_type: 'Revenue' });
 
   // Tamil input hooks
   const setNameTa = useCallback((v) => setForm(prev => ({ ...prev, name_ta: v })), []);
@@ -50,7 +50,7 @@ export default function AccountHeadsPage({ isAdmin, t }) {
       }
       setShowForm(false);
       setEditingHead(null);
-      setForm({ name: '', name_ta: '', description: '', description_ta: '', head_type: '' });
+      setForm({ name: '', name_ta: '', description: '', description_ta: '', head_type: '', account_type: 'Revenue' });
       fetchHeads();
     } catch (err) {
       console.error('Error saving account head:', err);
@@ -69,6 +69,7 @@ export default function AccountHeadsPage({ isAdmin, t }) {
       description: head.description || '',
       description_ta: head.description_ta || '',
       head_type: head.head_type || '',
+      account_type: head.account_type || 'Revenue',
     });
     setShowForm(true);
   };
@@ -115,7 +116,7 @@ export default function AccountHeadsPage({ isAdmin, t }) {
       <div style={styles.pageHeader}>
         <h2 style={styles.pageTitle}>📁 {t.accountHeads || 'Account Heads'}</h2>
         <button
-          onClick={() => { setEditingHead(null); setForm({ name: '', name_ta: '', description: '', description_ta: '', head_type: '' }); setShowForm(true); }}
+          onClick={() => { setEditingHead(null); setForm({ name: '', name_ta: '', description: '', description_ta: '', head_type: '', account_type: 'Revenue' }); setShowForm(true); }}
           style={{ ...styles.exportButton, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
         >
           ➕ New Account Head
@@ -165,6 +166,17 @@ export default function AccountHeadsPage({ isAdmin, t }) {
                   <option value="General">General</option>
                 </select>
               </div>
+              {/* Account Type */}
+              <div style={styles.formGroup}>
+                <label style={styles.formLabel}>{t.accountType || 'Account Type'} *</label>
+                <select value={form.account_type} onChange={(e) => setForm({ ...form, account_type: e.target.value })} style={styles.formInput} required>
+                  <option value="Revenue">Revenue</option>
+                  <option value="Asset">Asset</option>
+                  <option value="Liability">Liability</option>
+                  <option value="Equity">Equity</option>
+                  <option value="Expense">Expense</option>
+                </select>
+              </div>
               {/* Description (English) */}
               <div style={styles.formGroup}>
                 <label style={styles.formLabel}>{t.description || 'Description'} {langTag('EN')}</label>
@@ -198,9 +210,11 @@ export default function AccountHeadsPage({ isAdmin, t }) {
             <tr>
               <th style={styles.th}>{t.memberName || 'Name'}</th>
               <th style={styles.th}>{t.type || 'Type'}</th>
+              <th style={styles.th}>{t.accountType || 'Account Type'}</th>
+              <th style={styles.th}>{t.totalDebits || 'Total Debits'}</th>
+              <th style={styles.th}>{t.totalCredits || 'Total Credits'}</th>
+              <th style={styles.th}>{t.netBalance || 'Net Balance'}</th>
               <th style={styles.th}>{t.status}</th>
-              <th style={styles.th}>{t.createdBy || 'Created By'}</th>
-              <th style={styles.th}>{t.created || 'Created'}</th>
               <th style={styles.th}>{t.actions}</th>
             </tr>
           </thead>
@@ -208,7 +222,17 @@ export default function AccountHeadsPage({ isAdmin, t }) {
             {heads.map((head) => (
               <tr key={head.id} style={styles.tr}>
                 <td style={{ ...styles.td, fontWeight: '600' }}>
-                  {head.name}
+                  <button
+                    onClick={() => onSelectHead && onSelectHead(head)}
+                    style={{
+                      background: 'none', border: 'none', padding: 0,
+                      color: '#4338ca', textDecoration: 'underline',
+                      fontWeight: '700', cursor: 'pointer', textAlign: 'left',
+                      fontSize: '14px',
+                    }}
+                  >
+                    {head.name}
+                  </button>
                   {/* Always show Tamil name as subtitle when non-empty — never conditional on UI language */}
                   {head.name_ta && (
                     <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{head.name_ta}</div>
@@ -222,14 +246,20 @@ export default function AccountHeadsPage({ isAdmin, t }) {
                     }}>{head.head_type}</span>
                   ) : '—'}
                 </td>
+                <td style={styles.td}>{head.account_type || 'Revenue'}</td>
+                <td style={{ ...styles.td, fontWeight: '600', color: '#dc2626' }}>
+                  ₹{Number(head.total_debits || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </td>
+                <td style={{ ...styles.td, fontWeight: '600', color: '#059669' }}>
+                  ₹{Number(head.total_credits || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </td>
+                <td style={{ ...styles.td, fontWeight: '700', color: '#1e3a8a' }}>
+                  ₹{Number(head.net_balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </td>
                 <td style={styles.td}>
                   <span style={head.is_active ? styles.statusPaid : styles.statusPending}>
                     {head.is_active ? (t.active || 'Active') : (t.inactive || 'Inactive')}
                   </span>
-                </td>
-                <td style={styles.td}>{head.created_by_name || '—'}</td>
-                <td style={{ ...styles.td, fontSize: '12px', color: '#6b7280' }}>
-                  {head.created_at ? formatDate(head.created_at) : ''}
                 </td>
                 <td style={styles.td}>
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
@@ -256,7 +286,7 @@ export default function AccountHeadsPage({ isAdmin, t }) {
             ))}
             {heads.length === 0 && (
               <tr>
-                <td colSpan={6} style={{ ...styles.td, textAlign: 'center', color: '#9ca3af', padding: '40px' }}>
+                <td colSpan={8} style={{ ...styles.td, textAlign: 'center', color: '#9ca3af', padding: '40px' }}>
                   No account heads yet. Click "New Account Head" to create one.
                 </td>
               </tr>

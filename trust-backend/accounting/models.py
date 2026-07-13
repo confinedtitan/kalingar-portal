@@ -84,6 +84,17 @@ class AccountHead(models.Model):
         max_length=20, choices=TYPE_CHOICES, blank=True, default='',
         verbose_name="Type",
     )
+    ACCOUNT_TYPE_CHOICES = [
+        ('Asset', 'Asset'),
+        ('Liability', 'Liability'),
+        ('Equity', 'Equity'),
+        ('Revenue', 'Revenue'),
+        ('Expense', 'Expense'),
+    ]
+    account_type = models.CharField(
+        max_length=20, choices=ACCOUNT_TYPE_CHOICES, default='Revenue',
+        verbose_name="Account Type"
+    )
     is_active = models.BooleanField(default=True)
     created_by = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True,
@@ -107,14 +118,14 @@ class AccountHead(models.Model):
 
 class AccountTransaction(models.Model):
     """
-    A single financial transaction — either Income or Expense.
+    A single financial transaction — either Debit or Credit.
 
     See module docstring for soft-delete and audit-log rationale.
     """
 
     TRANSACTION_TYPE_CHOICES = [
-        ('INCOME', 'Income'),
-        ('EXPENSE', 'Expense'),
+        ('DEBIT', 'Debit'),
+        ('CREDIT', 'Credit'),
     ]
 
     PAYMENT_MODE_CHOICES = [
@@ -129,6 +140,11 @@ class AccountTransaction(models.Model):
     account_head = models.ForeignKey(
         AccountHead, on_delete=models.PROTECT,
         related_name='transactions',
+    )
+    tax_event = models.ForeignKey(
+        'members.TaxMaster', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='accounting_transactions',
+        help_text="Link to the tax event this transaction relates to."
     )
     transaction_type = models.CharField(
         max_length=10, choices=TRANSACTION_TYPE_CHOICES,

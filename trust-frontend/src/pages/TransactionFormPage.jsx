@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { styles } from '../utils/styles';
-import { accountingAPI } from '../services/api';
+import { accountingAPI, memberAPI } from '../services/api';
 import { useTamilInput } from '../utils/useTamilInput';
 
 // Language tag badge (mirrors AddMemberPage.jsx)
@@ -15,9 +15,10 @@ const langTag = (text) => (
 
 export default function TransactionFormPage({ t, onSuccess }) {
   const [heads, setHeads] = useState([]);
+  const [members, setMembers] = useState([]);
   const [form, setForm] = useState({
     account_head: '',
-    transaction_type: 'INCOME',
+    transaction_type: 'CREDIT',
     amount: '',
     transaction_date: new Date().toISOString().split('T')[0],
     payment_mode: 'Cash',
@@ -63,6 +64,13 @@ export default function TransactionFormPage({ t, onSuccess }) {
         setHeads(data);
       })
       .catch(console.error);
+
+    memberAPI.getAll({ page_size: 1000 })
+      .then((res) => {
+        const data = Array.isArray(res.data) ? res.data : res.data?.results || [];
+        setMembers(data);
+      })
+      .catch(console.error);
   }, []);
 
   const handleCreateHead = async () => {
@@ -104,7 +112,7 @@ export default function TransactionFormPage({ t, onSuccess }) {
       setSuccess(res.data);
       setForm({
         account_head: '',
-        transaction_type: 'INCOME',
+        transaction_type: 'CREDIT',
         amount: '',
         transaction_date: new Date().toISOString().split('T')[0],
         payment_mode: 'Cash',
@@ -152,7 +160,7 @@ export default function TransactionFormPage({ t, onSuccess }) {
     }
   };
 
-  const isIncome = form.transaction_type === 'INCOME';
+  const isIncome = form.transaction_type === 'CREDIT';
 
   return (
     <div style={styles.page}>
@@ -191,6 +199,33 @@ export default function TransactionFormPage({ t, onSuccess }) {
       )}
 
       <form onSubmit={handleSubmit} style={styles.form}>
+        {/* Member Selection Dropdown */}
+        <div style={{ ...styles.formGrid, marginBottom: '24px' }}>
+          <div style={styles.formGroup}>
+            <label style={styles.formLabel}>{t.memberSelection || 'Select Member'} (Optional)</label>
+            <select
+              value={form.member}
+              onChange={(e) => {
+                const memberId = e.target.value;
+                const selectedMem = members.find(m => String(m.id) === String(memberId));
+                setForm(prev => ({
+                  ...prev,
+                  member: memberId,
+                  donor_name: selectedMem ? selectedMem.name : prev.donor_name,
+                  donor_name_ta: selectedMem ? (selectedMem.name_ta || '') : prev.donor_name_ta,
+                  donor_contact: selectedMem ? (selectedMem.phone || '') : prev.donor_contact,
+                }));
+              }}
+              style={styles.formInput}
+            >
+              <option value="">{t.selectMember || 'Select Member (None)'}</option>
+              {members.map((m) => (
+                <option key={m.id} value={m.id}>{m.name}{m.name_ta ? ` / ${m.name_ta}` : ''}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         {/* Account Head selection */}
         <div style={{ ...styles.formGrid, marginBottom: '24px' }}>
           <div style={styles.formGroup}>
@@ -228,8 +263,8 @@ export default function TransactionFormPage({ t, onSuccess }) {
               onChange={(e) => setForm({ ...form, transaction_type: e.target.value })}
               style={styles.formInput}
             >
-              <option value="INCOME">💰 {t.incomeDetails ? t.incomeDetails.split('/')[0].trim() : 'Income / Donation'}</option>
-              <option value="EXPENSE">💸 {t.expenseDetails || 'Expense'}</option>
+              <option value="CREDIT">💰 {t.credit || 'Credit'}</option>
+              <option value="DEBIT">💸 {t.debit || 'Debit'}</option>
             </select>
           </div>
         </div>
@@ -369,15 +404,6 @@ export default function TransactionFormPage({ t, onSuccess }) {
                   type="text" value={form.donor_contact}
                   onChange={(e) => setForm({ ...form, donor_contact: e.target.value })}
                   style={styles.formInput}
-                />
-              </div>
-              <div style={styles.formGroup}>
-                <label style={styles.formLabel}>{t.linkedMemberId || 'Linked Member ID (optional)'}</label>
-                <input
-                  type="number" value={form.member}
-                  onChange={(e) => setForm({ ...form, member: e.target.value })}
-                  style={styles.formInput}
-                  placeholder="Leave blank if not a member"
                 />
               </div>
             </div>

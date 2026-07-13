@@ -121,23 +121,30 @@ class AccountHeadViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'])
     def summary(self, request, pk=None):
-        """Per-head summary: total income, expense, net, count."""
+        """Per-head summary: total debits, credits, net, count."""
         head = self.get_object()
         txns = AccountTransaction.objects.filter(
             account_head=head, is_deleted=False,
         )
-        total_income = txns.filter(
-            transaction_type='INCOME',
+        total_debits = txns.filter(
+            transaction_type='DEBIT',
         ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
-        total_expense = txns.filter(
-            transaction_type='EXPENSE',
+        total_credits = txns.filter(
+            transaction_type='CREDIT',
         ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+
+        if head.account_type in ['Asset', 'Expense']:
+            net_balance = total_debits - total_credits
+        else:
+            net_balance = total_credits - total_debits
 
         return Response({
             'account_head': head.name,
-            'total_income': str(total_income),
-            'total_expense': str(total_expense),
-            'net_balance': str(total_income - total_expense),
+            'total_income': str(total_credits),
+            'total_expense': str(total_debits),
+            'total_debits': str(total_debits),
+            'total_credits': str(total_credits),
+            'net_balance': str(net_balance),
             'transaction_count': txns.count(),
         })
 
@@ -287,17 +294,17 @@ class AccountTransactionViewSet(viewsets.ModelViewSet):
     def summary(self, request):
         """Overall summary across all heads."""
         qs = AccountTransaction.objects.filter(is_deleted=False)
-        total_income = qs.filter(
-            transaction_type='INCOME',
+        total_debits = qs.filter(
+            transaction_type='DEBIT',
         ).aggregate(t=Sum('amount'))['t'] or Decimal('0')
-        total_expense = qs.filter(
-            transaction_type='EXPENSE',
+        total_credits = qs.filter(
+            transaction_type='CREDIT',
         ).aggregate(t=Sum('amount'))['t'] or Decimal('0')
 
         return Response({
-            'total_income': str(total_income),
-            'total_expense': str(total_expense),
-            'net_balance': str(total_income - total_expense),
+            'total_income': str(total_credits),
+            'total_expense': str(total_debits),
+            'net_balance': str(total_credits - total_debits),
             'total_transactions': qs.count(),
         })
 
@@ -437,8 +444,8 @@ def _build_export_response(request, account_heads, filename):
         top=Side(style='thin'), bottom=Side(style='thin'),
     )
 
-    overall_income = Decimal('0')
-    overall_expense = Decimal('0')
+    overall_debits = Decimal('0')
+    overall_credits = Decimal('0')
 
     for head in account_heads:
         qs = AccountTransaction.objects.filter(
@@ -450,19 +457,19 @@ def _build_export_response(request, account_heads, filename):
         if date_to:
             qs = qs.filter(transaction_date__lte=date_to)
 
-        income_txns = qs.filter(transaction_type='INCOME').order_by('transaction_date')
-        expense_txns = qs.filter(transaction_type='EXPENSE').order_by('transaction_date')
+        income_txns = qs.filter(transaction_type='CREDIT').order_by('transaction_date')
+        expense_txns = qs.filter(transaction_type='DEBIT').order_by('transaction_date')
 
         head_income = income_txns.aggregate(t=Sum('amount'))['t'] or Decimal('0')
         head_expense = expense_txns.aggregate(t=Sum('amount'))['t'] or Decimal('0')
-        overall_income += head_income
-        overall_expense += head_expense
+        overall_credits += head_income
+        overall_debits += head_expense
 
         # Truncate sheet name to 31 chars (Excel limit)
         safe_name = head.name[:28]
 
-        # --- Income sheet ---
-        ws_income = wb.create_sheet(title=f"{safe_name} Inc")
+        # --- Income (Credit) sheet ---
+        ws_income = wb.create_sheet(title=f"{safe_name} Credits")
         ws_income.cell(row=1, column=1, value='ஸ்ரீ ராமஜெயம் | Sri Ramajeyam').font = Font(bold=True, size=14, color='D97706')
         ws_income.merge_cells('A1:L1')
         ws_income.cell(row=1, column=1).alignment = Alignment(horizontal='center')
@@ -504,8 +511,8 @@ def _build_export_response(request, account_heads, filename):
                 cell = ws_income.cell(row=row_idx, column=col, value=val)
                 cell.border = thin_border
 
-        # --- Expense sheet ---
-        ws_expense = wb.create_sheet(title=f"{safe_name} Exp")
+        # --- Expense (Debit) sheet ---
+        ws_expense = wb.create_sheet(title=f"{safe_name} Debits")
         ws_expense.cell(row=1, column=1, value='ஸ்ரீ ராமஜெயம் | Sri Ramajeyam').font = Font(bold=True, size=14, color='D97706')
         ws_expense.merge_cells('A1:K1')
         ws_expense.cell(row=1, column=1).alignment = Alignment(horizontal='center')
@@ -554,23 +561,23 @@ def _build_export_response(request, account_heads, filename):
     ws_summary.cell(row=1, column=1, value='ஸ்ரீ ராமஜெயம் | Sri Ramajeyam').font = Font(
         bold=True, size=14, color='D97706',
     )
-    ws_summary.merge_cells('A1:D1')
+    ws_summary.merge_cells('A1:E1')
     ws_summary.cell(row=1, column=1).alignment = Alignment(horizontal='center')
 
     ws_summary.cell(row=2, column=1, value='Account Head Report Summary').font = Font(
         bold=True, size=14,
     )
-    ws_summary.merge_cells('A2:D2')
+    ws_summary.merge_cells('A2:E2')
 
     date_range_str = ''
     if date_from or date_to:
         date_range_str = f"From: {date_from or 'Start'} — To: {date_to or 'Present'}"
         ws_summary.cell(row=3, column=1, value=date_range_str)
-        ws_summary.merge_cells('A3:D3')
+        ws_summary.merge_cells('A3:E3')
 
     start_row = 5
     for col, hdr in enumerate(
-        ['Account Head', 'Total Income', 'Total Expense', 'Net Balance'], 1,
+        ['Account Head', 'Account Type', 'Total Credits', 'Total Debits', 'Net Balance'], 1,
     ):
         cell = ws_summary.cell(row=start_row, column=col, value=hdr)
         cell.font = header_font
@@ -579,6 +586,7 @@ def _build_export_response(request, account_heads, filename):
         cell.border = thin_border
 
     row = start_row + 1
+    overall_net_balance = Decimal('0')
     for head in account_heads:
         qs = AccountTransaction.objects.filter(
             account_head=head, is_deleted=False,
@@ -588,30 +596,37 @@ def _build_export_response(request, account_heads, filename):
         if date_to:
             qs = qs.filter(transaction_date__lte=date_to)
 
-        hi = qs.filter(transaction_type='INCOME').aggregate(t=Sum('amount'))['t'] or 0
-        he = qs.filter(transaction_type='EXPENSE').aggregate(t=Sum('amount'))['t'] or 0
+        hi = qs.filter(transaction_type='CREDIT').aggregate(t=Sum('amount'))['t'] or Decimal('0')
+        he = qs.filter(transaction_type='DEBIT').aggregate(t=Sum('amount'))['t'] or Decimal('0')
+
+        if head.account_type in ['Asset', 'Expense']:
+            net_balance = he - hi
+        else:
+            net_balance = hi - he
+            
+        overall_net_balance += net_balance
 
         ws_summary.cell(row=row, column=1, value=head.name).border = thin_border
-        ws_summary.cell(row=row, column=2, value=float(hi)).border = thin_border
-        ws_summary.cell(row=row, column=3, value=float(he)).border = thin_border
-        ws_summary.cell(
-            row=row, column=4, value=float(hi - he),
-        ).border = thin_border
+        ws_summary.cell(row=row, column=2, value=head.account_type).border = thin_border
+        ws_summary.cell(row=row, column=3, value=float(hi)).border = thin_border
+        ws_summary.cell(row=row, column=4, value=float(he)).border = thin_border
+        ws_summary.cell(row=row, column=5, value=float(net_balance)).border = thin_border
         row += 1
 
     # Totals row
     total_font = Font(bold=True, size=11)
     ws_summary.cell(row=row, column=1, value='TOTAL').font = total_font
+    ws_summary.cell(row=row, column=2, value='').border = thin_border
     ws_summary.cell(
-        row=row, column=2, value=float(overall_income),
+        row=row, column=3, value=float(overall_credits),
     ).font = total_font
     ws_summary.cell(
-        row=row, column=3, value=float(overall_expense),
+        row=row, column=4, value=float(overall_debits),
     ).font = total_font
     ws_summary.cell(
-        row=row, column=4, value=float(overall_income - overall_expense),
+        row=row, column=5, value=float(overall_net_balance),
     ).font = total_font
-    for col in range(1, 5):
+    for col in range(1, 6):
         ws_summary.cell(row=row, column=col).border = thin_border
 
     # Auto-width columns

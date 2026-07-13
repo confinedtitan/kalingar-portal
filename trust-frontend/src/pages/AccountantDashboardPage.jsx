@@ -31,7 +31,7 @@ export default function AccountantDashboardPage({ t }) {
               const s = await accountingAPI.getHeadSummary(h.id);
               return { ...h, ...s.data };
             } catch {
-              return { ...h, total_income: '0', total_expense: '0', net_balance: '0', transaction_count: 0 };
+              return { ...h, total_credits: '0', total_debits: '0', net_balance: '0', transaction_count: 0 };
             }
           })
         );
@@ -112,7 +112,7 @@ export default function AccountantDashboardPage({ t }) {
             ₹{Number(summary?.total_income || 0).toLocaleString()}
           </div>
           <div style={{ fontSize: '14px', color: '#6b7280', fontWeight: '500' }}>
-            {t.totalIncome || 'Total Income'}
+            {t.totalCredits || 'Total Credits'}
           </div>
         </div>
         <div style={widgetCard('#ef4444')}>
@@ -120,7 +120,7 @@ export default function AccountantDashboardPage({ t }) {
             ₹{Number(summary?.total_expense || 0).toLocaleString()}
           </div>
           <div style={{ fontSize: '14px', color: '#6b7280', fontWeight: '500' }}>
-            {t.totalExpenses || 'Total Expenses'}
+            {t.totalDebits || 'Total Debits'}
           </div>
         </div>
         <div style={widgetCard('#4338ca')}>
@@ -172,15 +172,15 @@ export default function AccountantDashboardPage({ t }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '12px' }}>
               <div style={{ textAlign: 'center', padding: '8px', background: '#f0fdf4', borderRadius: '8px' }}>
                 <div style={{ fontSize: '16px', fontWeight: '700', color: '#059669' }}>
-                  ₹{Number(h.total_income || 0).toLocaleString()}
+                  ₹{Number(h.total_credits || 0).toLocaleString()}
                 </div>
-                <div style={{ fontSize: '11px', color: '#6b7280' }}>{t.income || 'Income'}</div>
+                <div style={{ fontSize: '11px', color: '#6b7280' }}>{t.credit || 'Credit'}</div>
               </div>
               <div style={{ textAlign: 'center', padding: '8px', background: '#fef2f2', borderRadius: '8px' }}>
                 <div style={{ fontSize: '16px', fontWeight: '700', color: '#dc2626' }}>
-                  ₹{Number(h.total_expense || 0).toLocaleString()}
+                  ₹{Number(h.total_debits || 0).toLocaleString()}
                 </div>
-                <div style={{ fontSize: '11px', color: '#6b7280' }}>{t.expense || 'Expense'}</div>
+                <div style={{ fontSize: '11px', color: '#6b7280' }}>{t.debit || 'Debit'}</div>
               </div>
               <div style={{ textAlign: 'center', padding: '8px', background: '#eef2ff', borderRadius: '8px' }}>
                 <div style={{ fontSize: '16px', fontWeight: '700', color: '#4338ca' }}>
@@ -234,18 +234,18 @@ export default function AccountantDashboardPage({ t }) {
                 }}
               >
                 <span style={{ fontSize: '20px' }}>
-                  {txn.transaction_type === 'INCOME' ? '💰' : '💸'}
+                  {txn.transaction_type === 'CREDIT' ? '💰' : '💸'}
                 </span>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: '14px', fontWeight: '600', color: '#1a1a1a' }}>
-                    {txn.transaction_type === 'INCOME'
-                      ? txn.donor_name || 'Donation'
-                      : txn.paid_to || 'Expense'}
+                    {txn.transaction_type === 'CREDIT'
+                      ? txn.donor_name || txn.member_name || 'Credit'
+                      : txn.paid_to || txn.member_name || 'Debit'}
                   </div>
                   {/* Always show Tamil name as subtitle when non-empty */}
-                  {(txn.transaction_type === 'INCOME' ? txn.donor_name_ta : txn.paid_to_ta) && (
+                  {(txn.transaction_type === 'CREDIT' ? txn.donor_name_ta : txn.paid_to_ta) && (
                     <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '1px' }}>
-                      {txn.transaction_type === 'INCOME' ? txn.donor_name_ta : txn.paid_to_ta}
+                      {txn.transaction_type === 'CREDIT' ? txn.donor_name_ta : txn.paid_to_ta}
                     </div>
                   )}
                   <div style={{ fontSize: '12px', color: '#6b7280' }}>
@@ -254,9 +254,9 @@ export default function AccountantDashboardPage({ t }) {
                 </div>
                 <div style={{
                   fontSize: '16px', fontWeight: '700',
-                  color: txn.transaction_type === 'INCOME' ? '#059669' : '#dc2626',
+                  color: txn.transaction_type === 'CREDIT' ? '#059669' : '#dc2626',
                 }}>
-                  {txn.transaction_type === 'INCOME' ? '+' : '-'}₹{Number(txn.amount).toLocaleString()}
+                  {txn.transaction_type === 'CREDIT' ? '+' : '-'}₹{Number(txn.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </div>
               </div>
             ))}

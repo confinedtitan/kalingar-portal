@@ -484,62 +484,68 @@ class TaxMasterViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Taxes have already been generated for this event'}, status=status.HTTP_400_BAD_REQUEST)
             
         from decimal import Decimal
+        from django.db import transaction
         from django.utils import timezone
         from accounting.models import AccountHead, AccountTransaction
         
-        # Get or create the AccountHead 'Tax Kodai'
-        account_head, _ = AccountHead.objects.get_or_create(
-            name='Tax Kodai',
-            defaults={
-                'head_type': 'Event',
-                'is_active': True,
-                'created_by': request.user if request.user.is_authenticated else None
-            }
-        )
-        
-        members = Member.objects.filter(is_active=True)
-        created_count = 0
-        for member in members:
-            tax_count = Decimal('1.0')
-            for child in member.children.all():
-                if child.gender == 'Male':
-                    if child.marital_status == 'Unmarried':
-                        tax_count += Decimal('0.5')
-                    else:
-                        tax_count += Decimal('1.0')
-            
-            total_tax = (tax_count * tax_master.base_amount).quantize(Decimal('0.00'))
-            
-            obj, created = MemberTax.objects.update_or_create(
-                member=member,
-                tax=tax_master,
-                defaults={
-                    'tax_count': tax_count,
-                    'total_tax': total_tax,
-                }
-            )
-            if created:
-                created_count += 1
-                
-            # Create account debit/bill entry (Income type transaction) for the member
-            if total_tax > 0:
-                AccountTransaction.objects.create(
-                    account_head=account_head,
-                    transaction_type='INCOME',
-                    amount=total_tax,
-                    transaction_date=timezone.now().date(),
-                    payment_mode='Credit',
-                    member=member,
-                    donor_name=member.name,
-                    donor_contact=member.phone or '',
-                    purpose=f"Tax Kodai: {tax_master.name}",
-                    entered_by=request.user
+        with transaction.atomic():
+            # Get the AccountHead linked to the tax event or fallback to 'Tax Kodai'
+            account_head = tax_master.account_head
+            if not account_head:
+                account_head, _ = AccountHead.objects.get_or_create(
+                    name='Tax Kodai',
+                    defaults={
+                        'head_type': 'Event',
+                        'is_active': True,
+                        'account_type': 'Revenue',
+                        'created_by': request.user if request.user.is_authenticated else None
+                    }
                 )
+            
+            members = Member.objects.filter(is_active=True)
+            created_count = 0
+            for member in members:
+                tax_count = Decimal('1.0')
+                for child in member.children.all():
+                    if child.gender == 'Male':
+                        if child.marital_status == 'Unmarried':
+                            tax_count += Decimal('0.5')
+                        else:
+                            tax_count += Decimal('1.0')
                 
-        # Update tax event status and generated date
-        tax_master.status = 'Generated'
-        tax_master.generated_date = timezone.now().date()
-        tax_master.save()
+                total_tax = (tax_count * tax_master.base_amount).quantize(Decimal('0.00'))
+                
+                obj, created = MemberTax.objects.update_or_create(
+                    member=member,
+                    tax=tax_master,
+                    defaults={
+                        'tax_count': tax_count,
+                        'total_tax': total_tax,
+                    }
+                )
+                if created:
+                    created_count += 1
+                    
+                # Create account debit/bill entry (DEBIT type transaction) for the member
+                if total_tax > 0:
+                    AccountTransaction.objects.create(
+                        account_head=account_head,
+                        tax_event=tax_master,
+                        transaction_type='DEBIT',
+                        amount=total_tax,
+                        transaction_date=timezone.now().date(),
+                        payment_mode='Credit',
+                        member=member,
+                        donor_name=member.name,
+                        donor_contact=member.phone or '',
+                        purpose=f"Tax Kodai: {tax_master.name}",
+                        entered_by=request.user
+                    )
+                    
+            # Update tax event status and generated date
+            tax_master.status = 'Generated'
+            tax_master.generated_date = timezone.now().date()
+            tax_master.save()
         
         return Response({'message': f'Generated {created_count} new taxes for {tax_master.name}'})
 
@@ -574,6 +580,9 @@ class TransactionViewSet(viewsets.ModelViewSet):
             return Transaction.objects.none()
             
     def perform_create(self, serializer):
+        from django.db import transaction as db_transaction
+        from django.utils import timezone
+        
         user = self.request.user
         assert isinstance(user, User)
         if user.is_staff and 'member' in serializer.validated_data:
@@ -581,9 +590,41 @@ class TransactionViewSet(viewsets.ModelViewSet):
         else:
             member = Member.objects.get(user=user)
             
-        transaction = serializer.save(member=member)
-        
-        if transaction.member_tax and transaction.transaction_type == 'Payment':
-            member_tax = transaction.member_tax
-            member_tax.amount_paid += transaction.amount
-            member_tax.save()
+        with db_transaction.atomic():
+            transaction = serializer.save(member=member)
+            
+            if transaction.member_tax and transaction.transaction_type == 'Payment':
+                member_tax = transaction.member_tax
+                member_tax.amount_paid += transaction.amount
+                member_tax.save()
+                
+                # Create corresponding CREDIT transaction in the general ledger
+                from accounting.models import AccountHead, AccountTransaction
+                
+                # Use the AccountHead linked to the tax event or fallback to 'Tax Kodai'
+                account_head = member_tax.tax.account_head
+                if not account_head:
+                    account_head, _ = AccountHead.objects.get_or_create(
+                        name='Tax Kodai',
+                        defaults={
+                            'head_type': 'Event',
+                            'is_active': True,
+                            'account_type': 'Revenue',
+                            'created_by': user if user.is_authenticated else None
+                        }
+                    )
+                
+                # Create CREDIT transaction in general ledger
+                AccountTransaction.objects.create(
+                    account_head=account_head,
+                    tax_event=member_tax.tax,
+                    transaction_type='CREDIT',
+                    amount=transaction.amount,
+                    transaction_date=timezone.now().date(),
+                    payment_mode='Cash',
+                    member=member,
+                    donor_name=member.name,
+                    donor_contact=member.phone or '',
+                    purpose=f"Tax payment installment: {member_tax.tax.name}",
+                    entered_by=user if user.is_authenticated else User.objects.filter(is_superuser=True).first()
+                )

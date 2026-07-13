@@ -20,6 +20,7 @@ import AccountantDashboardPage from './pages/AccountantDashboardPage';
 import AccountHeadsPage from './pages/AccountHeadsPage';
 import TransactionFormPage from './pages/TransactionFormPage';
 import TransactionListPage from './pages/TransactionListPage';
+import AccountHeadStatementPage from './pages/AccountHeadStatementPage';
 import MyDonationsPage from './pages/MyDonationsPage';
 import ChangePasswordPage from './pages/ChangePasswordPage';
 import MemberDetailsModal from './components/MemberDetailsModal';
@@ -34,6 +35,7 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isAccountant, setIsAccountant] = useState(false);
   const [currentPage, setCurrentPage] = useState('dashboard');
+  const [selectedHeadForStatement, setSelectedHeadForStatement] = useState(null);
   const [members, setMembers] = useState([]);
   const [payments, setPayments] = useState([]);
   const [showSidebar, setShowSidebar] = useState(true);
@@ -430,7 +432,25 @@ export default function App() {
             )}
 
             {currentPage === 'accountHeads' && (isAdmin || isAccountant) && (
-              <AccountHeadsPage isAdmin={isAdmin} t={t} />
+              <AccountHeadsPage
+                isAdmin={isAdmin}
+                t={t}
+                onSelectHead={(head) => {
+                  setSelectedHeadForStatement(head);
+                  setCurrentPage('accountHeadStatement');
+                }}
+              />
+            )}
+
+            {currentPage === 'accountHeadStatement' && (isAdmin || isAccountant) && selectedHeadForStatement && (
+              <AccountHeadStatementPage
+                head={selectedHeadForStatement}
+                t={t}
+                onBack={() => {
+                  setSelectedHeadForStatement(null);
+                  setCurrentPage('accountHeads');
+                }}
+              />
             )}
 
             {currentPage === 'addTransaction' && (isAdmin || isAccountant) && (

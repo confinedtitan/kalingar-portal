@@ -76,15 +76,20 @@ class StaffProfileCreateSerializer(serializers.Serializer):
 
 class AccountHeadSerializer(serializers.ModelSerializer):
     created_by_name = serializers.SerializerMethodField()
+    total_debits = serializers.SerializerMethodField()
+    total_credits = serializers.SerializerMethodField()
+    net_balance = serializers.SerializerMethodField()
 
     class Meta:
         model = AccountHead
         fields = [
             'id', 'name', 'name_ta', 'description', 'description_ta', 'head_type',
+            'account_type',
             'is_active', 'created_by', 'created_by_name',
+            'total_debits', 'total_credits', 'net_balance',
             'created_at', 'updated_at',
         ]
-        read_only_fields = ['created_by', 'created_at', 'updated_at']
+        read_only_fields = ['created_by', 'created_at', 'updated_at', 'total_debits', 'total_credits', 'net_balance']
 
     def get_created_by_name(self, obj):
         if not obj.created_by:
@@ -99,6 +104,34 @@ class AccountHeadSerializer(serializers.ModelSerializer):
         except Exception:
             pass
         return obj.created_by.get_username()
+
+    def get_total_debits(self, obj):
+        from django.db.models import Sum
+        from decimal import Decimal
+        debits = obj.transactions.filter(
+            is_deleted=False, transaction_type='DEBIT'
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        return str(debits)
+
+    def get_total_credits(self, obj):
+        from django.db.models import Sum
+        from decimal import Decimal
+        credits = obj.transactions.filter(
+            is_deleted=False, transaction_type='CREDIT'
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        return str(credits)
+
+    def get_net_balance(self, obj):
+        from decimal import Decimal
+        debits = Decimal(self.get_total_debits(obj))
+        credits = Decimal(self.get_total_credits(obj))
+        
+        # Debits - Credits for Assets/Expenses
+        if obj.account_type in ['Asset', 'Expense']:
+            return str(debits - credits)
+        # Credits - Debits for Liabilities/Equity/Revenue
+        else:
+            return str(credits - debits)
 
 
 # ---------------------------------------------------------------------------
@@ -125,10 +158,15 @@ class AccountTransactionSerializer(serializers.ModelSerializer):
         source='receipt.id', read_only=True, default=None,
     )
 
+    tax_event_name = serializers.CharField(
+        source='tax_event.name', read_only=True, default=None,
+    )
+
     class Meta:
         model = AccountTransaction
         fields = [
             'id', 'account_head', 'account_head_name',
+            'tax_event', 'tax_event_name',
             'transaction_type', 'amount', 'transaction_date',
             'payment_mode',
             # Income fields
@@ -167,7 +205,7 @@ class AccountTransactionCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = AccountTransaction
         fields = [
-            'account_head', 'transaction_type', 'amount',
+            'account_head', 'tax_event', 'transaction_type', 'amount',
             'transaction_date', 'payment_mode',
             'donor_name', 'donor_name_ta', 'donor_contact', 'member', 'purpose', 'purpose_ta',
             'paid_to', 'paid_to_ta', 'purpose_description', 'purpose_description_ta', 'bill_reference',

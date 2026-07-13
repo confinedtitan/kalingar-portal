@@ -54,7 +54,7 @@ export default function TransactionListPage({ isAdmin, t }) {
           {heads.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
         </select>
         <select value={filters.transaction_type} onChange={e => setFilters({...filters, transaction_type: e.target.value})} style={styles.filterSelect}>
-          <option value="">All Types</option><option value="INCOME">Income</option><option value="EXPENSE">Expense</option>
+          <option value="">All Types</option><option value="CREDIT">{t.credit || 'Credit'}</option><option value="DEBIT">{t.debit || 'Debit'}</option>
         </select>
         <select value={filters.payment_mode} onChange={e => setFilters({...filters, payment_mode: e.target.value})} style={styles.filterSelect}>
           <option value="">All Modes</option><option value="Cash">Cash</option><option value="Bank Transfer">Bank Transfer</option>
@@ -82,14 +82,16 @@ export default function TransactionListPage({ isAdmin, t }) {
                   <td style={{...styles.td, fontWeight:'600'}}>{txn.account_head_name}</td>
                   <td style={styles.td}>
                     <span style={{ padding:'2px 10px', borderRadius:'12px', fontSize:'11px', fontWeight:'700',
-                      background: txn.transaction_type==='INCOME' ? '#d1fae5':'#fee2e2',
-                      color: txn.transaction_type==='INCOME' ? '#065f46':'#991b1b' }}>{txn.transaction_type}</span>
+                      background: txn.transaction_type==='CREDIT' ? '#d1fae5':'#fee2e2',
+                      color: txn.transaction_type==='CREDIT' ? '#065f46':'#991b1b' }}>
+                      {txn.transaction_type === 'CREDIT' ? (t.credit || 'Credit') : (t.debit || 'Debit')}
+                    </span>
                   </td>
-                  <td style={{...styles.td, fontWeight:'700', color: txn.transaction_type==='INCOME'?'#059669':'#dc2626'}}>
-                    ₹{Number(txn.amount).toLocaleString()}</td>
+                  <td style={{...styles.td, fontWeight:'700', color: txn.transaction_type==='CREDIT'?'#059669':'#dc2626'}}>
+                    ₹{Number(txn.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                   <td style={{...styles.td, fontSize:'13px'}}>{txn.payment_mode}</td>
                   <td style={styles.td}>
-                    {txn.transaction_type === 'INCOME' ? (
+                    {txn.transaction_type === 'CREDIT' ? (
                       <div>
                         <div>{txn.donor_name || txn.member_name || '—'}</div>
                         {txn.donor_name_ta && (
@@ -98,7 +100,7 @@ export default function TransactionListPage({ isAdmin, t }) {
                       </div>
                     ) : (
                       <div>
-                        <div>{txn.paid_to || '—'}</div>
+                        <div>{txn.paid_to || txn.member_name || '—'}</div>
                         {txn.paid_to_ta && (
                           <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{txn.paid_to_ta}</div>
                         )}
