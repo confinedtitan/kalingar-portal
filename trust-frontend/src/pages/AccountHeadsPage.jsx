@@ -156,14 +156,12 @@ export default function AccountHeadsPage({ isAdmin, t, onSelectHead }) {
                   style={styles.formInput} placeholder="Tamil name (type in Tamil mode)"
                 />
               </div>
-              {/* Type */}
               <div style={styles.formGroup}>
                 <label style={styles.formLabel}>Type</label>
                 <select value={form.head_type} onChange={(e) => setForm({ ...form, head_type: e.target.value })} style={styles.formInput}>
                   <option value="">Select type (optional)</option>
-                  <option value="Event">Event</option>
-                  <option value="Recurring">Recurring</option>
                   <option value="General">General</option>
+                  <option value="Kodai">Kodai</option>
                 </select>
               </div>
               {/* Account Type */}

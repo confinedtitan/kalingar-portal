@@ -1,13 +1,14 @@
 from django.contrib import admin
 from import_export.admin import ImportExportModelAdmin
-from .models import Member, Child, TaxMaster, MemberTax, Transaction
+from .models import Member, TaxMaster, MemberTax, Transaction
 
 
 class ChildInline(admin.TabularInline):
     """Inline admin for children"""
-    model = Child
+    model = Member
+    fk_name = 'father'
     extra = 1
-    fields = ('name', 'name_ta', 'date_of_birth', 'gender', 'marital_status')
+    fields = ('name', 'name_ta', 'date_of_birth', 'gender', 'marital_status', 'is_family_head')
 
 
 @admin.register(Member)
@@ -56,18 +57,6 @@ class MemberAdmin(ImportExportModelAdmin):
         return self.readonly_fields
 
 
-@admin.register(Child)
-class ChildAdmin(admin.ModelAdmin):
-    """Admin interface for Child model"""
-    
-    list_display = ('name', 'member', 'date_of_birth', 'gender')
-    
-    list_filter = ('gender', 'date_of_birth')
-    
-    search_fields = ('name', 'member__name')
-    
-    autocomplete_fields = ('member',)
-
 @admin.register(TaxMaster)
 class TaxMasterAdmin(admin.ModelAdmin):
     list_display = ('name', 'base_amount', 'is_active', 'created_at')
@@ -75,24 +64,14 @@ class TaxMasterAdmin(admin.ModelAdmin):
     search_fields = ('name',)
     actions = ['generate_taxes']
 
-    @admin.action(description='Generate taxes for all active members')
+    @admin.action(description='Generate taxes for all active family heads')
     def generate_taxes(self, request, queryset):
-        from decimal import Decimal
+        from .utils import calculate_member_tax_count
         for tax_master in queryset:
-            members = Member.objects.filter(is_active=True)
+            members = Member.objects.filter(is_family_head=True, is_active=True)
             created_count = 0
             for member in members:
-                # Calculate tax count
-                # Base is 1 for family head
-                tax_count = Decimal('1.0')
-                for child in member.children.all():
-                    if child.gender == 'Male':
-                        if child.marital_status == 'Unmarried':
-                            tax_count += Decimal('0.5')
-                        else:
-                            tax_count += Decimal('1.0')
-                    # Girls do not add to tax count
-                
+                tax_count = calculate_member_tax_count(member)
                 total_tax = tax_count * tax_master.base_amount
                 
                 # Check if tax already exists
@@ -102,7 +81,6 @@ class TaxMasterAdmin(admin.ModelAdmin):
                     defaults={
                         'tax_count': tax_count,
                         'total_tax': total_tax,
-                        # Don't update amount_paid here in case it was already paid
                     }
                 )
                 if created:

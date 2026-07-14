@@ -143,8 +143,8 @@ class TrustAccount(models.Model):
         related_name='trust_accounts', verbose_name="Custodian Member"
     )
     family_member = models.ForeignKey(
-        'members.Child', on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='trust_accounts', verbose_name="Custodian Family Member"
+        'members.Member', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='custodian_trust_accounts', verbose_name="Custodian Family Member"
     )
     
     account_number = models.CharField(max_length=100, blank=True, default='', verbose_name="Account Number")

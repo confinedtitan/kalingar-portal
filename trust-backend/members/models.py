@@ -12,7 +12,7 @@ class Member(models.Model):
     Model representing a Trust Member (Family Head)
     """
     # Link to Django User for authentication
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='member_profile')
+    user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='member_profile')
     
     # Unique Member ID (auto-generated)
     member_id = models.CharField(max_length=20, unique=True, blank=True, verbose_name="Member ID")
@@ -24,15 +24,19 @@ class Member(models.Model):
         regex=r'^\d{10}$',
         message="Phone number must be exactly 10 digits."
     )
-    phone = models.CharField(validators=[phone_regex], max_length=10, unique=True, verbose_name="Phone Number")
+    phone = models.CharField(validators=[phone_regex], max_length=10, unique=True, null=True, blank=True, verbose_name="Phone Number")
 
     date_of_birth = models.DateField(verbose_name="Date of Birth")
     address = models.TextField(verbose_name="Address")
     address_ta = models.TextField(blank=True, default='', verbose_name="Address (Tamil)")
     
-    # Family Information
-    father_name = models.CharField(max_length=200, verbose_name="Father's Name")
-    father_name_ta = models.CharField(max_length=200, blank=True, default='', verbose_name="Father's Name (Tamil)")
+    # Family Information & Self-Referential Relationships
+    father = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='children_set')
+    fallback_father_name_en = models.CharField(max_length=200, null=True, blank=True, verbose_name="Fallback Father Name (English)")
+    fallback_father_name_ta = models.CharField(max_length=200, null=True, blank=True, default='', verbose_name="Fallback Father Name (Tamil)")
+    
+    father_name = models.CharField(max_length=200, blank=True, null=True, verbose_name="Father's Name")
+    father_name_ta = models.CharField(max_length=200, blank=True, null=True, default='', verbose_name="Father's Name (Tamil)")
     mother_name = models.CharField(max_length=200, blank=True, null=True, verbose_name="Mother's Name")
     mother_name_ta = models.CharField(max_length=200, blank=True, default='', verbose_name="Mother's Name (Tamil)")
     spouse_name = models.CharField(max_length=200, blank=True, null=True, verbose_name="Spouse's Name")
@@ -43,9 +47,23 @@ class Member(models.Model):
     amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name="Amount Paid")
     amount_due = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name="Amount Due")
     
-    # Status
+    # Status & Operational Flags
+    is_family_head = models.BooleanField(default=False, verbose_name="Family Head")
     is_active = models.BooleanField(default=True, verbose_name="Active Member")
+    is_expired = models.BooleanField(default=False, verbose_name="Deceased / Expired")
     password_reset_required = models.BooleanField(default=True, verbose_name="Password Reset Required", help_text="Set to True when admin resets password")
+    
+    # Demographics for child integration
+    GENDER_CHOICES = [
+        ('Male', 'Male'),
+        ('Female', 'Female'),
+    ]
+    MARITAL_STATUS_CHOICES = [
+        ('Unmarried', 'Unmarried'),
+        ('Married', 'Married'),
+    ]
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, blank=True, null=True, verbose_name="Gender")
+    marital_status = models.CharField(max_length=20, choices=MARITAL_STATUS_CHOICES, default='Unmarried', verbose_name="Marital Status")
     
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
@@ -54,7 +72,7 @@ class Member(models.Model):
     # Reverse relation — annotated explicitly so Pyright knows about it
     # (django-stubs cannot infer reverse relations from related_name strings)
     if TYPE_CHECKING:
-        children: models.Manager[Child]
+        children_set: models.Manager[Member]
     
     class Meta:
         ordering = ['name']
@@ -65,7 +83,51 @@ class Member(models.Model):
         return f"{self.name} ({self.phone})"
     
     def save(self, *args, **kwargs):
-        """Auto-generate member_id and calculate amount due before saving"""
+        """Auto-generate member_id, calculate amount due and handle status/succession updates"""
+        is_new = self.pk is None
+        old_is_family_head = False
+        old_is_expired = False
+        
+        if not is_new:
+            try:
+                orig = Member.objects.get(pk=self.pk)
+                old_is_family_head = orig.is_family_head
+                old_is_expired = orig.is_expired
+            except Member.DoesNotExist:
+                pass
+        
+        # Auto-populate father name from father model if linked
+        if self.father:
+            self.father_name = self.father.name
+            self.father_name_ta = self.father.name_ta
+        else:
+            if getattr(self, 'fallback_father_name_en', None):
+                self.father_name = self.fallback_father_name_en
+            if getattr(self, 'fallback_father_name_ta', None):
+                self.father_name_ta = self.fallback_father_name_ta
+
+        # A. Member Expiration Workflow (Deactivation)
+        # When a Member is marked as Expired (is_expired = True) via the UI or otherwise:
+        if self.is_expired:
+            self.is_active = False
+            self.is_family_head = False
+            
+            # Deactivate login credentials (delete the associated User object)
+            user = self.user
+            if user:
+                self.user = None
+                super().save(*args, **kwargs)
+                user.delete()
+            else:
+                super().save(*args, **kwargs)
+                
+            # Trigger Elder Son Succession Engine
+            if not old_is_expired and not is_new:
+                from .utils import trigger_succession
+                trigger_succession(self)
+            return
+
+        # Auto-generate member_id
         if not self.member_id:
             # Generate next member ID
             last = Member.objects.order_by('-id').first()
@@ -77,9 +139,19 @@ class Member(models.Model):
             else:
                 num = 1
             self.member_id = f'KT-{num:04d}'
+            
         from decimal import Decimal
         self.amount_due = Decimal(str(self.annual_tax)) - Decimal(str(self.amount_paid))
+        
         super().save(*args, **kwargs)
+        
+        # C. Core Family Head Promotion & Login Credentials Event
+        if self.is_family_head and not old_is_family_head:
+            from .utils import provision_credentials
+            provision_credentials(self)
+        elif not self.is_family_head and old_is_family_head:
+            from .utils import revoke_credentials
+            revoke_credentials(self)
     
     @property
     def payment_status(self):
@@ -91,38 +163,6 @@ class Member(models.Model):
         else:
             return "Pending"
 
-
-class Child(models.Model):
-    """
-    Model representing children of a member
-    """
-    GENDER_CHOICES = [
-        ('Male', 'Male'),
-        ('Female', 'Female'),
-    ]
-    
-    MARITAL_STATUS_CHOICES = [
-        ('Unmarried', 'Unmarried'),
-        ('Married', 'Married'),
-    ]
-    
-    member = models.ForeignKey(Member, on_delete=models.CASCADE, related_name='children')
-    name = models.CharField(max_length=200, verbose_name="Child Name")
-    name_ta = models.CharField(max_length=200, blank=True, default='', verbose_name="Child Name (Tamil)")
-    date_of_birth = models.DateField(verbose_name="Date of Birth")
-    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, verbose_name="Gender")
-    marital_status = models.CharField(max_length=20, choices=MARITAL_STATUS_CHOICES, default='Unmarried', verbose_name="Marital Status")
-    
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        ordering = ['date_of_birth']
-        verbose_name = "Child"
-        verbose_name_plural = "Children"
-    
-    def __str__(self):
-        return f"{self.name} (Child of {self.member.name})"
 
 
 class Announcement(models.Model):

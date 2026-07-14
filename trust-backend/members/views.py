@@ -8,11 +8,11 @@ from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 
-from .models import Member, Child, Announcement, Event, Meeting, TaxMaster, MemberTax, Transaction
+from .models import Member, Announcement, Event, Meeting, TaxMaster, MemberTax, Transaction
 from accounting.models import StaffProfile
 from .serializers import (
     MemberSerializer, MemberCreateSerializer, MemberUpdateSerializer,
-    MemberListSerializer, ChildSerializer, UserLoginSerializer,
+    MemberListSerializer, UserLoginSerializer,
     PasswordChangeSerializer, AdminPasswordResetSerializer,
     AnnouncementSerializer, EventSerializer, MeetingSerializer,
     TaxMasterSerializer, MemberTaxSerializer, TransactionSerializer
@@ -21,7 +21,8 @@ from .serializers import (
 
 class IsAdminOrOwner(permissions.BasePermission):
     """
-    Custom permission: Admin can access everything, members can only access their own data
+    Custom permission: Admin can access everything, members can only access their own data.
+    Accountants can read (list/retrieve) all members and related data.
     """
     def has_permission(self, request, view):
         return request.user and request.user.is_authenticated
@@ -30,8 +31,25 @@ class IsAdminOrOwner(permissions.BasePermission):
         # Admin can access everything
         if request.user.is_staff:  # type: ignore[union-attr]
             return True
-        # Members can only access their own profile
-        return obj.user == request.user
+            
+        # Check if user has an active StaffProfile with role=ACCOUNTANT
+        is_accountant = False
+        try:
+            profile = request.user.staff_profile
+            is_accountant = profile.role == 'ACCOUNTANT' and profile.is_active
+        except Exception:
+            pass
+            
+        # Accountants can read member and related information
+        if is_accountant and request.method in permissions.SAFE_METHODS:
+            return True
+            
+        # Members can only access their own profile / data
+        if hasattr(obj, 'user'):
+            return obj.user == request.user
+        if hasattr(obj, 'member') and hasattr(obj.member, 'user'):
+            return obj.member.user == request.user
+        return False
 
 
 class MemberViewSet(viewsets.ModelViewSet):
@@ -61,8 +79,17 @@ class MemberViewSet(viewsets.ModelViewSet):
         user = self.request.user
         # IsAdminOrOwner ensures only authenticated Users reach here
         assert isinstance(user, User)
-        if user.is_staff:
-            # Admin sees all members
+        
+        # Check if user is an active accountant
+        is_accountant = False
+        try:
+            profile = user.staff_profile
+            is_accountant = profile.role == 'ACCOUNTANT' and profile.is_active
+        except Exception:
+            pass
+
+        if user.is_staff or is_accountant:
+            # Admin and Accountant see all members
             return Member.objects.all()
         else:
             # Members see only their own profile
@@ -232,29 +259,6 @@ class MemberViewSet(viewsets.ModelViewSet):
         results = process_excel_workbook(wb)
         return Response(results, status=status.HTTP_200_OK)
 
-
-class ChildViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet for Child CRUD operations
-    """
-    queryset = Child.objects.all()
-    serializer_class = ChildSerializer
-    permission_classes = [IsAdminOrOwner]
-    
-    def get_queryset(self):
-        """Filter children based on user role"""
-        user = self.request.user
-        assert isinstance(user, User)
-        if user.is_staff:
-            return Child.objects.all()
-        else:
-            try:
-                member = Member.objects.get(user=user)
-                return Child.objects.filter(member=member)
-            except Member.DoesNotExist:
-                return Child.objects.none()
-
-
 class AuthViewSet(viewsets.ViewSet):
     """
     ViewSet for authentication operations
@@ -395,10 +399,28 @@ class AuthViewSet(viewsets.ViewSet):
             
             try:
                 member = Member.objects.get(id=member_id)
-                user = member.user
                 
-                # Reset password to phone number
-                new_password = member.phone
+                # Only family heads are allowed to have login credentials
+                if not member.is_family_head:
+                    return Response(
+                        {'error': 'Only family heads have login credentials. Please promote this member to family head first.'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                # Retrieve or automatically provision user credentials if missing
+                user = member.user
+                if not user:
+                    from .utils import provision_credentials
+                    user = provision_credentials(member)
+                    
+                if not user:
+                    return Response(
+                        {'error': 'Could not provision credentials for this family head. Ensure they have a phone number or member ID.'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                # Reset password to phone number, fallback to username if phone is empty
+                new_password = member.phone if member.phone else user.username
                 user.set_password(new_password)
                 user.save()
                 
@@ -502,16 +524,11 @@ class TaxMasterViewSet(viewsets.ModelViewSet):
                     }
                 )
             
-            members = Member.objects.filter(is_active=True)
+            members = Member.objects.filter(is_family_head=True, is_active=True)
             created_count = 0
             for member in members:
-                tax_count = Decimal('1.0')
-                for child in member.children.all():
-                    if child.gender == 'Male':
-                        if child.marital_status == 'Unmarried':
-                            tax_count += Decimal('0.5')
-                        else:
-                            tax_count += Decimal('1.0')
+                from .utils import calculate_member_tax_count
+                tax_count = calculate_member_tax_count(member)
                 
                 total_tax = (tax_count * tax_master.base_amount).quantize(Decimal('0.00'))
                 
@@ -556,7 +573,16 @@ class MemberTaxViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         user = self.request.user
         assert isinstance(user, User)
-        if user.is_staff:
+        
+        # Check if user is an active accountant
+        is_accountant = False
+        try:
+            profile = user.staff_profile
+            is_accountant = profile.role == 'ACCOUNTANT' and profile.is_active
+        except Exception:
+            pass
+
+        if user.is_staff or is_accountant:
             return MemberTax.objects.all()
         try:
             member = Member.objects.get(user=user)
@@ -571,7 +597,16 @@ class TransactionViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         assert isinstance(user, User)
-        if user.is_staff:
+        
+        # Check if user is an active accountant
+        is_accountant = False
+        try:
+            profile = user.staff_profile
+            is_accountant = profile.role == 'ACCOUNTANT' and profile.is_active
+        except Exception:
+            pass
+
+        if user.is_staff or is_accountant:
             return Transaction.objects.all()
         try:
             member = Member.objects.get(user=user)

@@ -4,7 +4,7 @@ import { styles } from '../utils/styles';
 import { contentAPI } from '../services/api';
 
 export default function DashboardPage({ isAdmin, members: rawMembers, payments: rawPayments, currentUser, t, exportToExcel }) {
-  const members = Array.isArray(rawMembers) ? rawMembers : [];
+  const members = (Array.isArray(rawMembers) ? rawMembers : []).filter(m => m.is_family_head);
   const payments = Array.isArray(rawPayments) ? rawPayments : [];
   const totalMembers = members.length;
   const totalCollected = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);

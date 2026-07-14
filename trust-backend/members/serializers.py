@@ -1,13 +1,13 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Member, Child, Announcement, Event, Meeting, TaxMaster, MemberTax, Transaction
+from .models import Member, Announcement, Event, Meeting, TaxMaster, MemberTax, Transaction
 
 
 class ChildSerializer(serializers.ModelSerializer):
-    """Serializer for Child model"""
+    """Serializer for Child model (now backed by Member schema)"""
     
     class Meta:  # type: ignore[assignment]
-        model = Child
+        model = Member
         fields = ['id', 'name', 'name_ta', 'date_of_birth', 'gender', 'marital_status']
 
 class TaxMasterSerializer(serializers.ModelSerializer):
@@ -34,7 +34,7 @@ class TransactionSerializer(serializers.ModelSerializer):
 
 class MemberSerializer(serializers.ModelSerializer):
     """Serializer for Member model"""
-    children = ChildSerializer(many=True, read_only=True)
+    children = ChildSerializer(source='children_set', many=True, read_only=True)
     taxes = MemberTaxSerializer(many=True, read_only=True)
     transactions = TransactionSerializer(many=True, read_only=True)
     amount_due = serializers.SerializerMethodField()
@@ -49,11 +49,13 @@ class MemberSerializer(serializers.ModelSerializer):
             'id', 'member_id', 'username',
             'name', 'name_ta', 'phone', 'date_of_birth',
             'address', 'address_ta',
+            'father', 'fallback_father_name_en', 'fallback_father_name_ta',
             'father_name', 'father_name_ta',
             'mother_name', 'mother_name_ta',
             'spouse_name', 'spouse_name_ta',
             'annual_tax', 'amount_paid', 'amount_due', 'payment_status',
-            'is_active', 'password_reset_required', 'children', 'taxes', 'transactions', 'created_at', 'updated_at'
+            'is_active', 'is_expired', 'is_family_head', 'password_reset_required',
+            'children', 'taxes', 'transactions', 'created_at', 'updated_at'
         ]
         read_only_fields = ['member_id', 'amount_due', 'password_reset_required', 'created_at', 'updated_at']
 
@@ -95,6 +97,7 @@ class MemberCreateSerializer(serializers.ModelSerializer):
         fields = [
             'name', 'name_ta', 'phone', 'password', 'date_of_birth',
             'address', 'address_ta',
+            'father', 'fallback_father_name_en', 'fallback_father_name_ta',
             'father_name', 'father_name_ta',
             'mother_name', 'mother_name_ta',
             'spouse_name', 'spouse_name_ta',
@@ -104,14 +107,12 @@ class MemberCreateSerializer(serializers.ModelSerializer):
     def validate_phone(self, value):
         """Normalize phone to 10 digits and check uniqueness"""
         import re
-        # Strip whitespace and any +91 or 91 prefix
         value = value.strip().replace(' ', '')
         if value.startswith('+91'):
             value = value[3:]
         elif value.startswith('91') and len(value) == 12:
             value = value[2:]
         
-        # Must be exactly 10 digits
         if not re.match(r'^\d{10}$', value):
             raise serializers.ValidationError("Phone number must be exactly 10 digits.")
         
@@ -119,48 +120,121 @@ class MemberCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("A member with this phone number already exists.")
         return value
     
-
     def create(self, validated_data):
         """Create member with user account and children"""
         children_data = validated_data.pop('children', [])
         password = validated_data.pop('password')
         
-        # Create Django User
+        # Primary member created via the form is a family head by default
+        validated_data['is_family_head'] = True
+        validated_data['is_active'] = True
+        validated_data['is_expired'] = False
+        
         user = User.objects.create_user(
             username=validated_data['phone'],
             password=password
         )
         
-        # Create Member
         member = Member.objects.create(user=user, **validated_data)
         
-        # Create Children
+        # Create Children as Member rows
         for child_data in children_data:
-            Child.objects.create(member=member, **child_data)
+            Member.objects.create(
+                father=member,
+                name=child_data['name'],
+                name_ta=child_data.get('name_ta', ''),
+                date_of_birth=child_data['date_of_birth'],
+                gender=child_data.get('gender'),
+                marital_status=child_data.get('marital_status', 'Unmarried'),
+                address=member.address,
+                address_ta=member.address_ta,
+                is_family_head=False,
+                is_active=True,
+                is_expired=False,
+                phone=None,
+                user=None,
+                annual_tax=0.00
+            )
         
         return member
 
 
 class MemberUpdateSerializer(serializers.ModelSerializer):
     """Serializer for updating member information"""
+    children = ChildSerializer(many=True, required=False)
     
     class Meta:  # type: ignore[assignment]
         model = Member
         fields = [
             'name', 'name_ta', 'date_of_birth',
             'address', 'address_ta',
+            'father', 'fallback_father_name_en', 'fallback_father_name_ta',
             'father_name', 'father_name_ta',
             'mother_name', 'mother_name_ta',
             'spouse_name', 'spouse_name_ta',
-            'annual_tax', 'is_active'
+            'annual_tax', 'is_active', 'is_expired', 'is_family_head',
+            'children'
         ]
+
+    def update(self, instance, validated_data):
+        children_data = validated_data.pop('children', None)
+        
+        # Update normal fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        
+        # Handle nested children updates
+        if children_data is not None:
+            existing_children = {c.id: c for c in instance.children_set.all()}
+            updated_ids = []
+            
+            for child_item in children_data:
+                child_id = child_item.get('id')
+                if child_id and child_id in existing_children:
+                    child = existing_children[child_id]
+                    child.name = child_item.get('name', child.name)
+                    child.name_ta = child_item.get('name_ta', child.name_ta)
+                    child.date_of_birth = child_item.get('date_of_birth', child.date_of_birth)
+                    child.gender = child_item.get('gender', child.gender)
+                    child.marital_status = child_item.get('marital_status', child.marital_status)
+                    # Copy address from father
+                    child.address = instance.address
+                    child.address_ta = instance.address_ta
+                    child.save()
+                    updated_ids.append(child.id)
+                else:
+                    new_child = Member.objects.create(
+                        father=instance,
+                        name=child_item['name'],
+                        name_ta=child_item.get('name_ta', ''),
+                        date_of_birth=child_item['date_of_birth'],
+                        gender=child_item.get('gender'),
+                        marital_status=child_item.get('marital_status', 'Unmarried'),
+                        address=instance.address,
+                        address_ta=instance.address_ta,
+                        is_family_head=False,
+                        is_active=True,
+                        is_expired=False,
+                        phone=None,
+                        user=None,
+                        annual_tax=0.00
+                    )
+                    updated_ids.append(new_child.id)
+                    
+            # Delete children not in updated_ids
+            for child_id, child in existing_children.items():
+                if child_id not in updated_ids:
+                    child.delete()
+                    
+        return instance
 
 
 class MemberListSerializer(serializers.ModelSerializer):
     """Simplified serializer for member list view"""
     payment_status = serializers.SerializerMethodField()
     children_count = serializers.SerializerMethodField()
-    children = ChildSerializer(many=True, read_only=True)
+    children = ChildSerializer(source='children_set', many=True, read_only=True)
     taxes = MemberTaxSerializer(many=True, read_only=True)
     amount_due = serializers.SerializerMethodField()
     annual_tax = serializers.SerializerMethodField()
@@ -171,14 +245,14 @@ class MemberListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'member_id', 'name', 'name_ta', 'phone', 'annual_tax', 'date_of_birth',
             'amount_paid', 'amount_due', 'payment_status',
-            'father_name', 'father_name_ta',
+            'father', 'father_name', 'father_name_ta',
             'mother_name', 'mother_name_ta',
             'spouse_name', 'spouse_name_ta',
-            'children', 'children_count', 'taxes', 'is_active', 'password_reset_required'
+            'children', 'children_count', 'taxes', 'is_active', 'is_expired', 'is_family_head', 'password_reset_required'
         ]
     
     def get_children_count(self, obj):
-        return obj.children.count()
+        return obj.children_set.count()
 
     def get_amount_due(self, obj):
         taxes = getattr(obj, 'taxes', None)

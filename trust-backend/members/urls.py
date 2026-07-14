@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter, SimpleRouter
 from .views import (
-    MemberViewSet, ChildViewSet, AuthViewSet,
+    MemberViewSet, AuthViewSet,
     AnnouncementViewSet, EventViewSet, MeetingViewSet,
     TaxMasterViewSet, MemberTaxViewSet, TransactionViewSet
 )
@@ -11,7 +11,6 @@ content_router = SimpleRouter()
 content_router.register(r'announcements', AnnouncementViewSet, basename='announcement')
 content_router.register(r'events', EventViewSet, basename='event')
 content_router.register(r'meetings', MeetingViewSet, basename='meeting')
-content_router.register(r'children', ChildViewSet, basename='child')
 content_router.register(r'taxes', TaxMasterViewSet, basename='taxmaster')
 content_router.register(r'member-taxes', MemberTaxViewSet, basename='membertax')
 content_router.register(r'transactions', TransactionViewSet, basename='transaction')

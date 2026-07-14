@@ -245,15 +245,16 @@ export default function App() {
 
   const addMemberHandler = async (memberData) => {
     try {
-      // Map camelCase form fields to snake_case Django fields
       const apiData = {
         name: memberData.name,
         name_ta: memberData.nameTa || '',
-        phone: memberData.phone,
-
+        phone: memberData.phone || null,
         date_of_birth: memberData.dob,
         address: memberData.address,
         address_ta: memberData.addressTa || '',
+        father: memberData.father || null,
+        fallback_father_name_en: memberData.fallbackFatherNameEn || '',
+        fallback_father_name_ta: memberData.fallbackFatherNameTa || '',
         father_name: memberData.fatherName,
         father_name_ta: memberData.fatherNameTa || '',
         mother_name: memberData.motherName || '',
@@ -266,13 +267,14 @@ export default function App() {
           name: child.name,
           name_ta: child.nameTa || '',
           date_of_birth: child.dob,
-          gender: child.gender,
+          gender: child.gender || 'Male',
+          marital_status: child.marital_status || 'Unmarried'
         })),
       };
       await memberAPI.create(apiData);
       showNotification(t.memberAdded);
-      // Refresh members list
       fetchMembers();
+      setCurrentPage('members');
     } catch (error) {
       console.error('Error creating member:', error);
       if (error.response && error.response.data) {
@@ -280,6 +282,53 @@ export default function App() {
         alert('Error creating member: ' + errors);
       } else {
         alert('Error creating member');
+      }
+    }
+  };
+
+  const updateMemberHandler = async (memberId, memberData) => {
+    try {
+      const apiData = {
+        name: memberData.name,
+        name_ta: memberData.nameTa || '',
+        phone: memberData.phone || null,
+        date_of_birth: memberData.dob,
+        address: memberData.address,
+        address_ta: memberData.addressTa || '',
+        father: memberData.father || null,
+        fallback_father_name_en: memberData.fallbackFatherNameEn || '',
+        fallback_father_name_ta: memberData.fallbackFatherNameTa || '',
+        father_name: memberData.fatherName,
+        father_name_ta: memberData.fatherNameTa || '',
+        mother_name: memberData.motherName || '',
+        mother_name_ta: memberData.motherNameTa || '',
+        spouse_name: memberData.spouseName || '',
+        spouse_name_ta: memberData.spouseNameTa || '',
+        annual_tax: memberData.annualTax,
+        is_active: memberData.isActive ?? true,
+        is_expired: memberData.isExpired ?? false,
+        is_family_head: memberData.isFamilyHead ?? false,
+        children: (memberData.children || []).map(child => ({
+          id: child.id || null,
+          name: child.name,
+          name_ta: child.nameTa || '',
+          date_of_birth: child.dob,
+          gender: child.gender || 'Male',
+          marital_status: child.marital_status || 'Unmarried'
+        })),
+      };
+      await memberAPI.update(memberId, apiData);
+      showNotification('Member updated successfully!');
+      fetchMembers();
+      setSelectedMember(null);
+      setCurrentPage('members');
+    } catch (error) {
+      console.error('Error updating member:', error);
+      if (error.response && error.response.data) {
+        const errors = Object.values(error.response.data).flat().join(', ');
+        alert('Error updating member: ' + errors);
+      } else {
+        alert('Error updating member');
       }
     }
   };
@@ -389,6 +438,13 @@ export default function App() {
                 members={members}
                 t={t}
                 onViewMember={handleViewMember}
+                onEditMember={(member) => {
+                  setSelectedMember(member);
+                  setCurrentPage('editMember');
+                }}
+                onAddMemberClick={() => {
+                  setCurrentPage('addMember');
+                }}
                 onExportExcel={exportToExcel}
                 onResetPassword={handleResetPassword}
                 onImportSuccess={fetchMembers}
@@ -398,7 +454,22 @@ export default function App() {
             {currentPage === 'addMember' && isAdmin && (
               <AddMemberPage
                 t={t}
+                members={members}
                 onAddMember={addMemberHandler}
+                onCancel={() => setCurrentPage('members')}
+              />
+            )}
+
+            {currentPage === 'editMember' && isAdmin && selectedMember && (
+              <AddMemberPage
+                t={t}
+                members={members}
+                member={selectedMember}
+                onUpdateMember={updateMemberHandler}
+                onCancel={() => {
+                  setSelectedMember(null);
+                  setCurrentPage('members');
+                }}
               />
             )}
 
@@ -456,11 +527,22 @@ export default function App() {
             )}
 
             {currentPage === 'addTransaction' && (isAdmin || isAccountant) && (
-              <TransactionFormPage t={t} />
+              <TransactionFormPage
+                t={t}
+                onSuccess={() => {
+                  fetchMembers();
+                  setCurrentPage('transactionList');
+                }}
+                onCancel={() => setCurrentPage('transactionList')}
+              />
             )}
 
             {currentPage === 'transactionList' && (isAdmin || isAccountant) && (
-              <TransactionListPage isAdmin={isAdmin} t={t} />
+              <TransactionListPage
+                isAdmin={isAdmin}
+                t={t}
+                onAddTransactionClick={() => setCurrentPage('addTransaction')}
+              />
             )}
 
             {currentPage === 'trustAccounts' && (isAdmin || isAccountant) && (

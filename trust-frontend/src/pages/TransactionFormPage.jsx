@@ -15,7 +15,7 @@ const langTag = (text) => (
 
 import api from '../services/api';
 
-export default function TransactionFormPage({ t, onSuccess }) {
+export default function TransactionFormPage({ t, onSuccess, onCancel }) {
   const [heads, setHeads] = useState([]);
   const [members, setMembers] = useState([]);
   const [trustAccounts, setTrustAccounts] = useState([]);
@@ -275,9 +275,12 @@ export default function TransactionFormPage({ t, onSuccess }) {
               style={styles.formInput}
             >
               <option value="">{t.selectMember || 'Select Member (None)'}</option>
-              {members.map((m) => (
-                <option key={m.id} value={m.id}>{m.name}{m.name_ta ? ` / ${m.name_ta}` : ''}</option>
-              ))}
+              {members
+                .filter(m => m.is_active && m.is_family_head)
+                .map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}{m.name_ta ? ` / ${m.name_ta}` : ''}</option>
+                ))
+              }
             </select>
           </div>
         </div>
@@ -619,13 +622,24 @@ export default function TransactionFormPage({ t, onSuccess }) {
           />
         </div>
 
-        <button type="submit" disabled={submitting} style={{
-          ...styles.submitButton,
-          opacity: submitting ? 0.6 : 1,
-          cursor: submitting ? 'not-allowed' : 'pointer',
-        }}>
-          {submitting ? '⏳ Creating...' : '✅ Create Transaction & Generate Receipt'}
-        </button>
+        <div style={{ display: 'flex', gap: '16px', marginTop: '24px' }}>
+          <button type="submit" disabled={submitting} style={{
+            ...styles.submitButton,
+            opacity: submitting ? 0.6 : 1,
+            cursor: submitting ? 'not-allowed' : 'pointer',
+          }}>
+            {submitting ? '⏳ Creating...' : '✅ Create Transaction & Generate Receipt'}
+          </button>
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              style={{ ...styles.submitButton, backgroundColor: '#64748b' }}
+            >
+              {t.cancel || 'Cancel'}
+            </button>
+          )}
+        </div>
       </form>
     </div>
   );

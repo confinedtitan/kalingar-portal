@@ -463,7 +463,7 @@ class AccountTransactionViewSet(viewsets.ModelViewSet):
         Balance = Cumulative DEBIT (due/billed) - Cumulative CREDIT (paid).
         """
         from members.models import Member
-        members = Member.objects.filter(is_active=True).order_by('name')
+        members = Member.objects.filter(is_active=True, is_family_head=True).order_by('name')
         
         data = []
         for m in members:

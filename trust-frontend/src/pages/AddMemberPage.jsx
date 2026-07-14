@@ -1,8 +1,8 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { styles } from '../utils/styles';
 import { useTamilInput } from '../utils/useTamilInput';
 
-export default function AddMemberPage({ t, onAddMember }) {
+export default function AddMemberPage({ t, onAddMember, member, onUpdateMember, onCancel, members = [] }) {
   const [formData, setFormData] = useState({
     name: '',
     nameTa: '',
@@ -11,6 +11,9 @@ export default function AddMemberPage({ t, onAddMember }) {
     dob: '',
     address: '',
     addressTa: '',
+    father: '',
+    fallbackFatherNameEn: '',
+    fallbackFatherNameTa: '',
     fatherName: '',
     fatherNameTa: '',
     motherName: '',
@@ -18,21 +21,59 @@ export default function AddMemberPage({ t, onAddMember }) {
     spouseName: '',
     spouseNameTa: '',
     annualTax: 20000,
+    isFamilyHead: true,
+    isActive: true,
+    isExpired: false,
     children: []
   });
+
+  useEffect(() => {
+    if (member) {
+      setFormData({
+        name: member.name || '',
+        nameTa: member.name_ta || '',
+        phone: member.phone || '',
+        password: '',
+        dob: member.date_of_birth || member.dob || '',
+        address: member.address || '',
+        addressTa: member.address_ta || '',
+        father: member.father || '',
+        fallbackFatherNameEn: member.fallback_father_name_en || '',
+        fallbackFatherNameTa: member.fallback_father_name_ta || '',
+        fatherName: member.father_name || '',
+        fatherNameTa: member.father_name_ta || '',
+        motherName: member.mother_name || '',
+        motherNameTa: member.mother_name_ta || '',
+        spouseName: member.spouse_name || '',
+        spouseNameTa: member.spouse_name_ta || '',
+        annualTax: member.annual_tax || 20000,
+        isFamilyHead: member.is_family_head || false,
+        isActive: member.is_active ?? true,
+        isExpired: member.is_expired ?? false,
+        children: (member.children || []).map(child => ({
+          id: child.id,
+          name: child.name,
+          nameTa: child.name_ta || '',
+          dob: child.date_of_birth || child.dob || '',
+          gender: child.gender || 'Male',
+          marital_status: child.marital_status || 'Unmarried'
+        }))
+      });
+    }
+  }, [member]);
 
   const [childForm, setChildForm] = useState({ name: '', nameTa: '', dob: '', gender: 'Male', marital_status: 'Unmarried' });
 
   // Tamil input hooks — each returns { onChange, onKeyDown } to spread onto the input
   const setNameTa = useCallback((v) => setFormData(prev => ({ ...prev, nameTa: v })), []);
-  const setFatherNameTa = useCallback((v) => setFormData(prev => ({ ...prev, fatherNameTa: v })), []);
+  const setFatherNameTa = useCallback((v) => setFormData(prev => ({ ...prev, fallbackFatherNameTa: v, fatherNameTa: v })), []);
   const setMotherNameTa = useCallback((v) => setFormData(prev => ({ ...prev, motherNameTa: v })), []);
   const setSpouseNameTa = useCallback((v) => setFormData(prev => ({ ...prev, spouseNameTa: v })), []);
   const setAddressTa = useCallback((v) => setFormData(prev => ({ ...prev, addressTa: v })), []);
   const setChildNameTa = useCallback((v) => setChildForm(prev => ({ ...prev, nameTa: v })), []);
 
   const nameTaProps = useTamilInput(formData.nameTa, setNameTa);
-  const fatherTaProps = useTamilInput(formData.fatherNameTa, setFatherNameTa);
+  const fatherTaProps = useTamilInput(formData.fallbackFatherNameTa, setFatherNameTa);
   const motherTaProps = useTamilInput(formData.motherNameTa, setMotherNameTa);
   const spouseTaProps = useTamilInput(formData.spouseNameTa, setSpouseNameTa);
   const addressTaProps = useTamilInput(formData.addressTa, setAddressTa);
@@ -40,24 +81,20 @@ export default function AddMemberPage({ t, onAddMember }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onAddMember(formData);
-    setFormData({
-      name: '',
-      nameTa: '',
-      phone: '',
-      password: '',
-      dob: '',
-      address: '',
-      addressTa: '',
-      fatherName: '',
-      fatherNameTa: '',
-      motherName: '',
-      motherNameTa: '',
-      spouseName: '',
-      spouseNameTa: '',
-      annualTax: 20000,
-      children: []
-    });
+    let finalChildren = formData.children;
+    // Auto-save child if name and dob are filled but user forgot to click "+ Add Child"
+    if (childForm.name && childForm.dob) {
+      finalChildren = [...formData.children, childForm];
+    }
+    const finalData = {
+      ...formData,
+      children: finalChildren
+    };
+    if (member && onUpdateMember) {
+      onUpdateMember(member.id, finalData);
+    } else {
+      onAddMember(finalData);
+    }
   };
 
   const addChild = () => {
@@ -155,27 +192,59 @@ export default function AddMemberPage({ t, onAddMember }) {
             />
           </div>
 
-          {/* Father Name (English) */}
+          {/* Father Linkage & Bilingual Fallbacks */}
+          <div style={styles.formGroup}>
+            <label style={styles.formLabel}>Link Father (if registered member)</label>
+            <select
+              value={formData.father || ''}
+              onChange={(e) => {
+                const fatherId = e.target.value;
+                const linkedFather = members.find(m => String(m.id) === String(fatherId));
+                setFormData(prev => ({
+                  ...prev,
+                  father: fatherId,
+                  fatherName: linkedFather ? linkedFather.name : prev.fallbackFatherNameEn,
+                  fatherNameTa: linkedFather ? linkedFather.name_ta : prev.fallbackFatherNameTa,
+                }));
+              }}
+              style={styles.formInput}
+            >
+              <option value="">-- Not in members list (Enter fallback names below) --</option>
+              {members
+                .filter(m => m.is_family_head && m.is_active && (!member || String(m.id) !== String(member.id)))
+                .map(m => (
+                  <option key={m.id} value={m.id}>{m.name}{m.name_ta ? ` / ${m.name_ta}` : ''}</option>
+                ))
+              }
+            </select>
+          </div>
+
           <div style={styles.formGroup}>
             <label style={styles.formLabel}>{t.fatherNameEnglish} {langTag('EN')} *</label>
             <input
               type="text"
-              required
-              value={formData.fatherName}
-              onChange={(e) => setFormData({ ...formData, fatherName: e.target.value })}
+              required={!formData.father}
+              disabled={!!formData.father}
+              value={formData.father ? formData.fatherName : formData.fallbackFatherNameEn}
+              onChange={(e) => {
+                if (!formData.father) {
+                  setFormData({ ...formData, fallbackFatherNameEn: e.target.value, fatherName: e.target.value });
+                }
+              }}
               style={styles.formInput}
-              placeholder="Enter father's name in English"
+              placeholder={formData.father ? "Linked to father profile" : "Enter father's name in English"}
             />
           </div>
 
-          {/* Father Name (Tamil) */}
           <div style={styles.formGroup}>
             <label style={styles.formLabel}>{t.fatherNameTamil} {langTag('தமிழ்')}</label>
             <input
               type="text"
-              value={formData.fatherNameTa}
-              {...fatherTaProps}
+              disabled={!!formData.father}
+              value={formData.father ? formData.fatherNameTa : formData.fallbackFatherNameTa}
+              {...(formData.father ? {} : fatherTaProps)}
               style={styles.formInput}
+              placeholder={formData.father ? "Linked to father profile" : ""}
             />
           </div>
 
@@ -224,18 +293,74 @@ export default function AddMemberPage({ t, onAddMember }) {
               style={styles.formInput}
             />
           </div>
-
-          <div style={styles.formGroup}>
-            <label style={styles.formLabel}>{t.annualTax} (₹) *</label>
-            <input
-              type="number"
-              required
-              value={formData.annualTax}
-              onChange={(e) => setFormData({ ...formData, annualTax: parseInt(e.target.value) })}
-              style={styles.formInput}
-            />
-          </div>
         </div>
+
+        {/* Status and Promotion Settings (Only in Edit Mode) */}
+        {member && (
+          <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '24px' }}>
+            <h4 style={{ margin: '0 0 16px 0', fontSize: '15px', fontWeight: '700', color: '#334155' }}>Status & Account Settings</h4>
+            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '600' }}>
+                <input
+                  type="checkbox"
+                  checked={formData.isExpired}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setFormData(prev => ({
+                      ...prev,
+                      isExpired: checked,
+                      ...(checked ? { isActive: false, isFamilyHead: false } : { isActive: true })
+                    }));
+                  }}
+                />
+                Deceased / Expired
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '600', color: formData.isExpired ? '#94a3b8' : 'inherit' }}>
+                <input
+                  type="checkbox"
+                  disabled={formData.isExpired}
+                  checked={formData.isActive}
+                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                />
+                Active Member
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: '600', color: (formData.isExpired || formData.isFamilyHead) ? '#94a3b8' : 'inherit' }}>
+                <input
+                  type="checkbox"
+                  disabled={formData.isExpired || formData.isFamilyHead}
+                  checked={formData.isFamilyHead}
+                  onChange={(e) => setFormData({ ...formData, isFamilyHead: e.target.checked })}
+                />
+                Is Family Head
+              </label>
+            </div>
+            
+            {/* Manual promotion button */}
+            {!formData.isFamilyHead && !formData.isExpired && (
+              <div style={{ marginTop: '16px' }}>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, isFamilyHead: true })}
+                  style={{
+                    padding: '8px 16px',
+                    background: '#6366f1',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    boxShadow: '0 2px 4px rgba(99, 102, 241, 0.2)',
+                  }}
+                >
+                  👑 Promote to Family Head
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Address (English) */}
         <div style={styles.formGroup}>
@@ -328,9 +453,20 @@ export default function AddMemberPage({ t, onAddMember }) {
           )}
         </div>
 
-        <button type="submit" style={styles.submitButton}>
-          {t.submit}
-        </button>
+        <div style={{ display: 'flex', gap: '16px', marginTop: '24px' }}>
+          <button type="submit" style={styles.submitButton}>
+            {member ? (t.save || 'Save Changes') : t.submit}
+          </button>
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              style={{ ...styles.submitButton, backgroundColor: '#64748b' }}
+            >
+              {t.cancel || 'Cancel'}
+            </button>
+          )}
+        </div>
       </form>
     </div>
   );

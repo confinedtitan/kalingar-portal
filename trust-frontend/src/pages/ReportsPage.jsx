@@ -685,7 +685,7 @@ export default function ReportsPage({ t }) {
                         .filter(m => 
                           m.name.toLowerCase().includes(memberSearch.toLowerCase()) ||
                           (m.name_ta && m.name_ta.includes(memberSearch)) ||
-                          m.phone.includes(memberSearch)
+                          (m.phone && m.phone.includes(memberSearch))
                         )
                         .map(m => {
                           const val = Number(m.running_balance);

@@ -468,9 +468,12 @@ export default function TrustAccountsPage({ t, isAdmin, isAccountant }) {
                     style={styles.formInput}
                   >
                     <option value="">Select proxy member</option>
-                    {members.map(m => (
-                      <option key={m.id} value={m.id}>{m.name}</option>
-                    ))}
+                    {members
+                      .filter(m => m.is_active && m.is_family_head)
+                      .map(m => (
+                        <option key={m.id} value={m.id}>{m.name}</option>
+                      ))
+                    }
                   </select>
                 </div>
               )}
@@ -503,9 +506,12 @@ export default function TrustAccountsPage({ t, isAdmin, isAccountant }) {
                     style={styles.formInput}
                   >
                     <option value="">Select custodian member</option>
-                    {members.map(m => (
-                      <option key={m.id} value={m.id}>{m.name}</option>
-                    ))}
+                    {members
+                      .filter(m => m.is_active && m.is_family_head)
+                      .map(m => (
+                        <option key={m.id} value={m.id}>{m.name}</option>
+                      ))
+                    }
                   </select>
                 </div>
               )}

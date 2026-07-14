@@ -25,7 +25,6 @@ export default function Sidebar({ isAdmin, isAccountant, currentPage, setCurrent
         {isAdmin && (
           <>
             <NavBtn page="members" icon={Users} label={t.members} />
-            <NavBtn page="addMember" icon={Plus} label={t.addMember} />
             <NavBtn page="allPayments" icon={DollarSign} label={t.payments} />
             <NavBtn page="familyTree" icon={GitBranch} label={t.familyTree} />
             <NavBtn page="contentManagement" icon={FileText} label={t.contentManagement || 'Content'} />
@@ -38,7 +37,6 @@ export default function Sidebar({ isAdmin, isAccountant, currentPage, setCurrent
             <NavBtn page="accountHeads" icon={BookOpen} label={t.accountHeads || 'Account Heads'} />
             <NavBtn page="trustAccounts" icon={Briefcase} label={t.trustAccounts || 'Trust Accounts'} />
             <NavBtn page="transactionList" icon={List} label={t.transactions || 'Transactions'} />
-            <NavBtn page="addTransaction" icon={PlusCircle} label={t.addTransaction || 'Add Transaction'} />
             <NavBtn page="reports" icon={BarChart3} label={t.reports || 'Reports'} />
           </>
         )}
@@ -49,7 +47,6 @@ export default function Sidebar({ isAdmin, isAccountant, currentPage, setCurrent
             <NavBtn page="accountantDashboard" icon={BarChart3} label={t.accountantDashboard || 'Dashboard'} />
             <NavBtn page="accountHeads" icon={BookOpen} label={t.accountHeads || 'Account Heads'} />
             <NavBtn page="trustAccounts" icon={Briefcase} label={t.trustAccounts || 'Trust Accounts'} />
-            <NavBtn page="addTransaction" icon={PlusCircle} label={t.addTransaction || 'Add Transaction'} />
             <NavBtn page="transactionList" icon={List} label={t.transactions || 'Transactions'} />
             <NavBtn page="reports" icon={BarChart3} label={t.reports || 'Reports'} />
           </>

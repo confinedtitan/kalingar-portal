@@ -1,9 +1,9 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { styles } from '../utils/styles';
 import { useTamilInput } from '../utils/useTamilInput';
 import { memberAPI, accountingAPI } from '../services/api';
 
-export default function MembersPage({ members: rawMembers, t, onViewMember, onExportExcel, onResetPassword, onImportSuccess }) {
+export default function MembersPage({ members: rawMembers, t, onViewMember, onEditMember, onAddMemberClick, onExportExcel, onResetPassword, onImportSuccess }) {
   const members = Array.isArray(rawMembers) ? rawMembers : [];
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -21,20 +21,129 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEx
   const [showStaffForm, setShowStaffForm] = useState(false);
   const [staffForm, setStaffForm] = useState({ name: '', phone: '', password: '' });
 
+  const fetchStaff = useCallback(async () => {
+    try {
+      const response = await accountingAPI.getStaff();
+      const data = Array.isArray(response.data) ? response.data : response.data?.results || [];
+      setStaffList(data);
+    } catch (error) {
+      console.error('Error fetching staff:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchStaff();
+  }, [fetchStaff]);
+
   const setSearchValue = useCallback((v) => setSearchTerm(v), []);
   const searchTamilProps = useTamilInput(searchTerm, setSearchValue);
 
-  const filteredMembers = members.filter(m => {
-    const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = m.name.toLowerCase().includes(searchLower) ||
-      (m.name_ta && m.name_ta.includes(searchTerm)) ||
-      m.phone.includes(searchTerm);
-    const due = m.amount_due ?? m.amountDue ?? 0;
-    const matchesFilter = filterStatus === 'all' ||
-      (filterStatus === 'paid' && due === 0) ||
-      (filterStatus === 'pending' && due > 0);
-    return matchesSearch && matchesFilter;
+  const [sortField, setSortField] = useState('');
+  const [sortDirection, setSortDirection] = useState('asc');
+  const [columnFilters, setColumnFilters] = useState({
+    member_id: '',
+    name: '',
+    phone: '',
+    father_name: '',
+    annual_tax: '',
+    amount_paid: '',
+    amount_due: '',
+    status: ''
   });
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const filteredMembers = members
+    .filter(m => {
+      if (!m.is_family_head) return false;
+      
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch = m.name.toLowerCase().includes(searchLower) ||
+        (m.name_ta && m.name_ta.includes(searchTerm)) ||
+        (m.phone && m.phone.includes(searchTerm));
+      if (!matchesSearch) return false;
+
+      const due = m.amount_due ?? m.amountDue ?? 0;
+      const matchesFilter = filterStatus === 'all' ||
+        (filterStatus === 'paid' && due === 0) ||
+        (filterStatus === 'pending' && due > 0);
+      if (!matchesFilter) return false;
+
+      // Column filters
+      if (columnFilters.member_id && !(m.member_id || '').toLowerCase().includes(columnFilters.member_id.toLowerCase())) return false;
+      
+      if (columnFilters.name) {
+        const nameVal = `${m.name} ${m.name_ta || ''}`.toLowerCase();
+        if (!nameVal.includes(columnFilters.name.toLowerCase())) return false;
+      }
+      
+      if (columnFilters.phone && !(m.phone || '').toLowerCase().includes(columnFilters.phone.toLowerCase())) return false;
+      
+      if (columnFilters.father_name) {
+        const fatherVal = `${m.father_name ?? m.fatherName ?? ''} ${m.father_name_ta ?? m.fatherNameTa ?? ''}`.toLowerCase();
+        if (!fatherVal.includes(columnFilters.father_name.toLowerCase())) return false;
+      }
+      
+      if (columnFilters.annual_tax && !String(m.annual_tax ?? m.annualTax ?? 0).includes(columnFilters.annual_tax)) return false;
+      
+      if (columnFilters.amount_paid && !String(m.amount_paid ?? m.amountPaid ?? 0).includes(columnFilters.amount_paid)) return false;
+      
+      if (columnFilters.amount_due && !String(m.amount_due ?? m.amountDue ?? 0).includes(columnFilters.amount_due)) return false;
+      
+      if (columnFilters.status) {
+        const statusVal = due === 0 ? 'paid' : 'pending';
+        if (columnFilters.status !== 'all' && statusVal !== columnFilters.status) return false;
+      }
+
+      return true;
+    })
+    .sort((a, b) => {
+      if (!sortField) return 0;
+      let valA, valB;
+      
+      if (sortField === 'member_id') {
+        valA = a.member_id || '';
+        valB = b.member_id || '';
+      } else if (sortField === 'name') {
+        valA = a.name || '';
+        valB = b.name || '';
+      } else if (sortField === 'phone') {
+        valA = a.phone || '';
+        valB = b.phone || '';
+      } else if (sortField === 'father_name') {
+        valA = a.father_name ?? a.fatherName ?? '';
+        valB = b.father_name ?? b.fatherName ?? '';
+      } else if (sortField === 'annual_tax') {
+        valA = Number(a.annual_tax ?? a.annualTax ?? 0);
+        valB = Number(b.annual_tax ?? b.annualTax ?? 0);
+      } else if (sortField === 'amount_paid') {
+        valA = Number(a.amount_paid ?? a.amountPaid ?? 0);
+        valB = Number(b.amount_paid ?? b.amountPaid ?? 0);
+      } else if (sortField === 'amount_due') {
+        valA = Number(a.amount_due ?? a.amountDue ?? 0);
+        valB = Number(b.amount_due ?? b.amountDue ?? 0);
+      } else if (sortField === 'status') {
+        valA = (a.amount_due ?? a.amountDue ?? 0) === 0 ? 'paid' : 'pending';
+        valB = (b.amount_due ?? b.amountDue ?? 0) === 0 ? 'paid' : 'pending';
+      }
+
+      if (typeof valA === 'string') {
+        return sortDirection === 'asc' 
+          ? valA.localeCompare(valB)
+          : valB.localeCompare(valA);
+      } else {
+        return sortDirection === 'asc'
+          ? valA - valB
+          : valB - valA;
+      }
+    });
 
   const toggleExpand = (id) => {
     setExpandedRow(expandedRow === id ? null : id);
@@ -241,6 +350,24 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEx
         <h2 style={{ ...styles.pageTitle, marginBottom: 0 }}>{t.members}</h2>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           <button
+            onClick={onAddMemberClick}
+            style={{
+              padding: '10px 20px',
+              background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontWeight: '600',
+              fontSize: '14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
+            ➕ {t.addMember || 'Add Member'}
+          </button>
+          <button
             onClick={handleOpenImport}
             style={{
               padding: '10px 20px',
@@ -304,14 +431,120 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEx
           <thead>
             <tr>
               <th style={styles.th}></th>
-              <th style={styles.th}>{t.memberId || 'Member ID'}</th>
-              <th style={styles.th}>{t.memberName}</th>
-              <th style={styles.th}>{t.phoneNumber}</th>
-              <th style={styles.th}>{t.fatherName}</th>
-              <th style={styles.th}>{t.annualTax}</th>
-              <th style={styles.th}>{t.amountPaid}</th>
-              <th style={styles.th}>{t.amountDue}</th>
-              <th style={styles.th}>{t.status}</th>
+              <th style={styles.th}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => handleSort('member_id')}>
+                    {t.memberId || 'Member ID'} {sortField === 'member_id' ? (sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Filter"
+                    value={columnFilters.member_id}
+                    onChange={(e) => setColumnFilters({ ...columnFilters, member_id: e.target.value })}
+                    style={{ fontSize: '11px', padding: '4px 6px', border: '1px solid #cbd5e1', borderRadius: '4px', width: '100%', boxSizing: 'border-box', fontWeight: 'normal', marginTop: '6px', color: '#334155', backgroundColor: '#ffffff' }}
+                  />
+                </div>
+              </th>
+              <th style={styles.th}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => handleSort('name')}>
+                    {t.memberName} {sortField === 'name' ? (sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Filter"
+                    value={columnFilters.name}
+                    onChange={(e) => setColumnFilters({ ...columnFilters, name: e.target.value })}
+                    style={{ fontSize: '11px', padding: '4px 6px', border: '1px solid #cbd5e1', borderRadius: '4px', width: '100%', boxSizing: 'border-box', fontWeight: 'normal', marginTop: '6px', color: '#334155', backgroundColor: '#ffffff' }}
+                  />
+                </div>
+              </th>
+              <th style={styles.th}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => handleSort('phone')}>
+                    {t.phoneNumber} {sortField === 'phone' ? (sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Filter"
+                    value={columnFilters.phone}
+                    onChange={(e) => setColumnFilters({ ...columnFilters, phone: e.target.value })}
+                    style={{ fontSize: '11px', padding: '4px 6px', border: '1px solid #cbd5e1', borderRadius: '4px', width: '100%', boxSizing: 'border-box', fontWeight: 'normal', marginTop: '6px', color: '#334155', backgroundColor: '#ffffff' }}
+                  />
+                </div>
+              </th>
+              <th style={styles.th}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => handleSort('father_name')}>
+                    {t.fatherName} {sortField === 'father_name' ? (sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Filter"
+                    value={columnFilters.father_name}
+                    onChange={(e) => setColumnFilters({ ...columnFilters, father_name: e.target.value })}
+                    style={{ fontSize: '11px', padding: '4px 6px', border: '1px solid #cbd5e1', borderRadius: '4px', width: '100%', boxSizing: 'border-box', fontWeight: 'normal', marginTop: '6px', color: '#334155', backgroundColor: '#ffffff' }}
+                  />
+                </div>
+              </th>
+              <th style={styles.th}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => handleSort('annual_tax')}>
+                    {t.annualTax} {sortField === 'annual_tax' ? (sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Filter"
+                    value={columnFilters.annual_tax}
+                    onChange={(e) => setColumnFilters({ ...columnFilters, annual_tax: e.target.value })}
+                    style={{ fontSize: '11px', padding: '4px 6px', border: '1px solid #cbd5e1', borderRadius: '4px', width: '100%', boxSizing: 'border-box', fontWeight: 'normal', marginTop: '6px', color: '#334155', backgroundColor: '#ffffff' }}
+                  />
+                </div>
+              </th>
+              <th style={styles.th}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => handleSort('amount_paid')}>
+                    {t.amountPaid} {sortField === 'amount_paid' ? (sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Filter"
+                    value={columnFilters.amount_paid}
+                    onChange={(e) => setColumnFilters({ ...columnFilters, amount_paid: e.target.value })}
+                    style={{ fontSize: '11px', padding: '4px 6px', border: '1px solid #cbd5e1', borderRadius: '4px', width: '100%', boxSizing: 'border-box', fontWeight: 'normal', marginTop: '6px', color: '#334155', backgroundColor: '#ffffff' }}
+                  />
+                </div>
+              </th>
+              <th style={styles.th}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => handleSort('amount_due')}>
+                    {t.amountDue} {sortField === 'amount_due' ? (sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Filter"
+                    value={columnFilters.amount_due}
+                    onChange={(e) => setColumnFilters({ ...columnFilters, amount_due: e.target.value })}
+                    style={{ fontSize: '11px', padding: '4px 6px', border: '1px solid #cbd5e1', borderRadius: '4px', width: '100%', boxSizing: 'border-box', fontWeight: 'normal', marginTop: '6px', color: '#334155', backgroundColor: '#ffffff' }}
+                  />
+                </div>
+              </th>
+              <th style={styles.th}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => handleSort('status')}>
+                    {t.status} {sortField === 'status' ? (sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
+                  </div>
+                  <select
+                    value={columnFilters.status}
+                    onChange={(e) => setColumnFilters({ ...columnFilters, status: e.target.value })}
+                    style={{ fontSize: '11px', padding: '4px 6px', border: '1px solid #cbd5e1', borderRadius: '4px', width: '100%', boxSizing: 'border-box', fontWeight: 'normal', marginTop: '6px', color: '#334155', backgroundColor: '#ffffff' }}
+                  >
+                    <option value="">All</option>
+                    <option value="paid">Paid</option>
+                    <option value="pending">Pending</option>
+                  </select>
+                </div>
+              </th>
               <th style={styles.th}>{t.actions}</th>
             </tr>
           </thead>
@@ -360,6 +593,9 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEx
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                         <button onClick={() => onViewMember(member)} style={styles.actionButton}>
                           {t.view}
+                        </button>
+                        <button onClick={() => onEditMember(member)} style={{ ...styles.actionButton, backgroundColor: '#4f46e5' }}>
+                          {t.edit || 'Edit'}
                         </button>
                         {onResetPassword && (
                           <button
@@ -456,7 +692,7 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEx
           >➕ Add Accountant</button>
         </div>
 
-        <StaffTable staffList={staffList} setStaffList={setStaffList} />
+        <StaffTable staffList={staffList} onRefresh={fetchStaff} />
 
         {showStaffForm && (
           <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
@@ -470,8 +706,7 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEx
                 try {
                   await accountingAPI.createStaff(staffForm);
                   setShowStaffForm(false);
-                  // trigger re-fetch
-                  setStaffList([]);
+                  fetchStaff();
                 } catch (err) {
                   const msg = err.response?.data ? Object.values(err.response.data).flat().join(', ') : 'Failed';
                   alert(msg);
@@ -501,28 +736,7 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEx
   );
 }
 
-function StaffTable({ staffList, setStaffList }) {
-  const [loaded, setLoaded] = React.useState(false);
-
-  React.useEffect(() => {
-    if (staffList.length === 0 && !loaded) {
-      accountingAPI.getStaff()
-        .then(r => {
-          const data = Array.isArray(r.data) ? r.data : r.data?.results || [];
-          setStaffList(data);
-          setLoaded(true);
-        })
-        .catch(console.error);
-    }
-  }, [staffList, loaded, setStaffList]);
-
-  // Re-fetch when staffList is cleared (after create)
-  React.useEffect(() => {
-    if (staffList.length === 0 && loaded) {
-      setLoaded(false);
-    }
-  }, [staffList, loaded]);
-
+function StaffTable({ staffList, onRefresh }) {
   const toggleActive = async (staff) => {
     try {
       if (staff.is_active) {
@@ -530,7 +744,7 @@ function StaffTable({ staffList, setStaffList }) {
       } else {
         await accountingAPI.activateStaff(staff.id);
       }
-      setStaffList([]);
+      onRefresh();
     } catch (err) {
       alert('Failed to update staff status.');
     }

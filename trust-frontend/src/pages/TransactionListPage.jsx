@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { styles } from '../utils/styles';
 import { accountingAPI } from '../services/api';
 
-export default function TransactionListPage({ isAdmin, t }) {
+export default function TransactionListPage({ isAdmin, t, onAddTransactionClick }) {
   const [transactions, setTransactions] = useState([]);
   const [heads, setHeads] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -43,7 +43,27 @@ export default function TransactionListPage({ isAdmin, t }) {
 
   return (
     <div style={styles.page}>
-      <div style={styles.pageHeader}><h2 style={styles.pageTitle}>📋 Transactions</h2></div>
+      <div style={{ ...styles.pageHeader, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h2 style={{ ...styles.pageTitle, marginBottom: 0 }}>📋 Transactions</h2>
+        <button
+          onClick={onAddTransactionClick}
+          style={{
+            padding: '10px 20px',
+            background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontWeight: '600',
+            fontSize: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          ➕ {t.addTransaction || 'Add Transaction'}
+        </button>
+      </div>
 
       <div style={{ display:'flex', gap:'12px', marginBottom:'24px', flexWrap:'wrap', alignItems:'flex-end' }}>
         <input type="text" placeholder="Search donor/payee..." value={filters.search}

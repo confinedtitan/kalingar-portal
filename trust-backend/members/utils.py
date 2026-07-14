@@ -154,6 +154,9 @@ def create_member_from_dict(data):
                 annual_tax=Decimal(str(data.get('annual_tax', 0))),
                 amount_paid=data.get('amount_paid', Decimal('0')),
                 password_reset_required=True,
+                is_family_head=True,
+                is_active=True,
+                is_expired=False,
             )
             member.save()  # triggers auto-ID (KT-XXXX) and amount_due calc
         return (member, True, None)
@@ -228,3 +231,114 @@ def process_excel_workbook(wb):
         'skipped': skipped,
         'errors': errors,
     }
+
+
+def get_member_and_descendants_tax(member):
+    """
+    Recursively sum the tax contributions of a member and their descendants
+    who are not active family heads.
+    """
+    if member.is_family_head and member.is_active:
+        return Decimal('0.0')
+        
+    tax = Decimal('0.0')
+    if member.is_active:
+        if member.gender == 'Male':
+            if member.marital_status == 'Unmarried':
+                tax += Decimal('0.5')
+            else:
+                tax += Decimal('1.0')
+                
+    for child in member.children_set.all():
+        tax += get_member_and_descendants_tax(child)
+        
+    return tax
+
+
+def calculate_member_tax_count(member):
+    """
+    Calculate the tax count multiplier for an active family head.
+    Base is 1.0 for the head.
+    Plus contributions from dependent unpromoted siblings and their offspring recursively.
+    Plus contributions from their own unpromoted children and offspring recursively.
+    """
+    if not (member.is_family_head and member.is_active):
+        return Decimal('0.0')
+        
+    tax_count = Decimal('1.0')
+    
+    # 1. Sibling dependencies
+    if member.father:
+        siblings = Member.objects.filter(father=member.father).exclude(id=member.id)
+        for sibling in siblings:
+            if sibling.is_family_head and sibling.is_active:
+                continue
+            tax_count += get_member_and_descendants_tax(sibling)
+            
+    # 2. Family head's own children/grandchildren
+    for child in member.children_set.all():
+        tax_count += get_member_and_descendants_tax(child)
+        
+    return tax_count
+
+
+def provision_credentials(member):
+    """
+    Generate login credentials for a member promoted to family head.
+    Username is phone if available, else member_id.
+    """
+    if member.is_family_head and not member.user:
+        username = member.phone if member.phone else member.member_id
+        if not username:
+            # Save first to get member_id if missing
+            member.save()
+            username = member.member_id
+            
+        if not username:
+            return None
+            
+        # Deduplicate username
+        base_username = username
+        counter = 1
+        while User.objects.filter(username=username).exists():
+            username = f"{base_username}_{counter}"
+            counter += 1
+            
+        default_password = member.phone if member.phone else username
+        user = User.objects.create_user(username=username, password=default_password)
+        
+        # Direct DB update to avoid save signals recursion
+        Member.objects.filter(pk=member.pk).update(user=user, password_reset_required=True)
+        member.user = user
+        member.password_reset_required = True
+        return user
+
+
+def revoke_credentials(member):
+    """
+    Safely delete the login user of a demoted family head.
+    """
+    if member.user:
+        user = member.user
+        Member.objects.filter(pk=member.pk).update(user=None)
+        member.user = None
+        user.delete()
+
+
+def trigger_succession(expired_member):
+    """
+    Automated succession workflow on expiration of a family head.
+    Locates active children, sorts chronologically (seniority), and promotes
+    the elder son (or oldest active child if no male child is found).
+    """
+    children = Member.objects.filter(father=expired_member, is_active=True).order_by('date_of_birth')
+    
+    # Seniority: Elder Son (Male)
+    elder_son = children.filter(gender='Male').first()
+    if not elder_son:
+        elder_son = children.first()
+        
+    if elder_son:
+        elder_son.is_family_head = True
+        elder_son.save()
+

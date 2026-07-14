@@ -7,7 +7,7 @@ export default function FamilyTreePage({ members, t }) {
       <h2 style={styles.pageTitle}>{t.familyTree}</h2>
 
       <div style={styles.familyTreeContainer}>
-        {members.map(member => {
+        {members.filter(m => m.is_family_head).map(member => {
           const fatherName = member.father_name ?? member.fatherName ?? '';
           const motherName = member.mother_name ?? member.motherName ?? '';
           const spouseName = member.spouse_name ?? member.spouseName ?? '';
