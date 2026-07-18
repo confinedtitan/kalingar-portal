@@ -33,14 +33,12 @@ class Member(models.Model):
     )
     phone = models.CharField(validators=[phone_regex], max_length=10, unique=True, null=True, blank=True, verbose_name="Phone Number")
 
-    date_of_birth = models.DateField(verbose_name="Date of Birth")
+    date_of_birth = models.DateField(null=True, blank=True, verbose_name="Date of Birth")
     address = models.TextField(verbose_name="Address")
     address_ta = models.TextField(blank=True, default='', verbose_name="Address (Tamil)")
     
     # Family Information & Self-Referential Relationships
     father = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='children_set')
-    fallback_father_name_en = models.CharField(max_length=200, null=True, blank=True, verbose_name="Fallback Father Name (English)")
-    fallback_father_name_ta = models.CharField(max_length=200, null=True, blank=True, default='', verbose_name="Fallback Father Name (Tamil)")
     
     father_name = models.CharField(max_length=200, blank=True, null=True, verbose_name="Father's Name")
     father_name_ta = models.CharField(max_length=200, blank=True, null=True, default='', verbose_name="Father's Name (Tamil)")
@@ -107,11 +105,6 @@ class Member(models.Model):
         if self.father:
             self.father_name = self.father.name
             self.father_name_ta = self.father.name_ta
-        else:
-            if getattr(self, 'fallback_father_name_en', None):
-                self.father_name = self.fallback_father_name_en
-            if getattr(self, 'fallback_father_name_ta', None):
-                self.father_name_ta = self.fallback_father_name_ta
 
         # A. Member Expiration Workflow (Deactivation)
         # When a Member is marked as Expired (is_expired = True) via the UI or otherwise:

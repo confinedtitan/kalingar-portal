@@ -133,7 +133,7 @@ export default function MyProfilePage({ member, t, onEditProfile, onChangePasswo
             )}
             <div style={styles.profileField}>
               <label>{t.dateOfBirth}</label>
-              <div>{formatDate(member.date_of_birth ?? member.dob)}</div>
+              <div>{formatDate(member.date_of_birth ?? member.dob) || '-'}</div>
             </div>
             <div style={styles.profileField}>
               <label>{t.addressEnglish || t.address}</label>

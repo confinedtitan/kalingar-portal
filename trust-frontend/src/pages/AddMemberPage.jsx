@@ -13,8 +13,6 @@ export default function AddMemberPage({ t, onAddMember, member, onUpdateMember, 
     address: '',
     addressTa: '',
     father: '',
-    fallbackFatherNameEn: '',
-    fallbackFatherNameTa: '',
     fatherName: '',
     fatherNameTa: '',
     motherName: '',
@@ -44,8 +42,6 @@ export default function AddMemberPage({ t, onAddMember, member, onUpdateMember, 
         address: fields.address ?? member.address ?? '',
         addressTa: fields.address_ta ?? member.address_ta ?? '',
         father: fields.father ?? member.father ?? '',
-        fallbackFatherNameEn: fields.fallback_father_name_en ?? member.fallback_father_name_en ?? '',
-        fallbackFatherNameTa: fields.fallback_father_name_ta ?? member.fallback_father_name_ta ?? '',
         fatherName: fields.father_name ?? member.father_name ?? '',
         fatherNameTa: fields.father_name_ta ?? member.father_name_ta ?? '',
         motherName: fields.mother_name ?? member.mother_name ?? '',
@@ -81,14 +77,14 @@ export default function AddMemberPage({ t, onAddMember, member, onUpdateMember, 
 
   // Tamil input hooks — each returns { onChange, onKeyDown } to spread onto the input
   const setNameTa = useCallback((v) => setFormData(prev => ({ ...prev, nameTa: v })), []);
-  const setFatherNameTa = useCallback((v) => setFormData(prev => ({ ...prev, fallbackFatherNameTa: v, fatherNameTa: v })), []);
+  const setFatherNameTa = useCallback((v) => setFormData(prev => ({ ...prev, fatherNameTa: v })), []);
   const setMotherNameTa = useCallback((v) => setFormData(prev => ({ ...prev, motherNameTa: v })), []);
   const setSpouseNameTa = useCallback((v) => setFormData(prev => ({ ...prev, spouseNameTa: v })), []);
   const setAddressTa = useCallback((v) => setFormData(prev => ({ ...prev, addressTa: v })), []);
   const setChildNameTa = useCallback((v) => setChildForm(prev => ({ ...prev, nameTa: v })), []);
 
   const nameTaProps = useTamilInput(formData.nameTa, setNameTa);
-  const fatherTaProps = useTamilInput(formData.fallbackFatherNameTa, setFatherNameTa);
+  const fatherTaProps = useTamilInput(formData.fatherNameTa, setFatherNameTa);
   const motherTaProps = useTamilInput(formData.motherNameTa, setMotherNameTa);
   const spouseTaProps = useTamilInput(formData.spouseNameTa, setSpouseNameTa);
   const addressTaProps = useTamilInput(formData.addressTa, setAddressTa);
@@ -97,8 +93,8 @@ export default function AddMemberPage({ t, onAddMember, member, onUpdateMember, 
   const handleSubmit = (e) => {
     e.preventDefault();
     let finalChildren = formData.children;
-    // Auto-save child if name and dob are filled but user forgot to click "+ Add Child"
-    if (childForm.name && childForm.dob) {
+    // Auto-save child if name is filled but user forgot to click "+ Add Child"
+    if (childForm.name) {
       finalChildren = [...formData.children, childForm];
     }
     const finalData = {
@@ -113,7 +109,7 @@ export default function AddMemberPage({ t, onAddMember, member, onUpdateMember, 
   };
 
   const addChild = () => {
-    if (childForm.name && childForm.dob) {
+    if (childForm.name) {
       setFormData({
         ...formData,
         children: [...formData.children, childForm]
@@ -215,10 +211,9 @@ export default function AddMemberPage({ t, onAddMember, member, onUpdateMember, 
 
 
           <div style={styles.formGroup}>
-            <label style={styles.formLabel}>{t.dateOfBirth} *</label>
+            <label style={styles.formLabel}>{t.dateOfBirth}</label>
             <input
               type="date"
-              required
               value={formData.dob}
               onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
               style={styles.formInput}
@@ -236,13 +231,13 @@ export default function AddMemberPage({ t, onAddMember, member, onUpdateMember, 
                 setFormData(prev => ({
                   ...prev,
                   father: fatherId,
-                  fatherName: linkedFather ? linkedFather.name : prev.fallbackFatherNameEn,
-                  fatherNameTa: linkedFather ? linkedFather.name_ta : prev.fallbackFatherNameTa,
+                  fatherName: linkedFather ? linkedFather.name : prev.fatherName,
+                  fatherNameTa: linkedFather ? linkedFather.name_ta : prev.fatherNameTa,
                 }));
               }}
               style={styles.formInput}
             >
-              <option value="">-- Not in members list (Enter fallback names below) --</option>
+              <option value="">-- Not in members list (Enter father's name below) --</option>
               {members
                 .filter(m => m.is_family_head && m.is_active && (!member || String(m.id) !== String(member.id)))
                 .map(m => (
@@ -258,10 +253,10 @@ export default function AddMemberPage({ t, onAddMember, member, onUpdateMember, 
               type="text"
               required={!formData.father}
               disabled={!!formData.father}
-              value={formData.father ? formData.fatherName : formData.fallbackFatherNameEn}
+              value={formData.fatherName}
               onChange={(e) => {
                 if (!formData.father) {
-                  setFormData({ ...formData, fallbackFatherNameEn: e.target.value, fatherName: e.target.value });
+                  setFormData({ ...formData, fatherName: e.target.value });
                 }
               }}
               style={styles.formInput}
@@ -274,7 +269,7 @@ export default function AddMemberPage({ t, onAddMember, member, onUpdateMember, 
             <input
               type="text"
               disabled={!!formData.father}
-              value={formData.father ? formData.fatherNameTa : formData.fallbackFatherNameTa}
+              value={formData.fatherNameTa}
               {...(formData.father ? {} : fatherTaProps)}
               style={styles.formInput}
               placeholder={formData.father ? "Linked to father profile" : ""}

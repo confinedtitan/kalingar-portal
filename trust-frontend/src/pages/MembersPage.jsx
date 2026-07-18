@@ -2,6 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { styles } from '../utils/styles';
 import { useTamilInput } from '../utils/useTamilInput';
 import { memberAPI, accountingAPI } from '../services/api';
+import { formatDate } from '../utils/dateFormatter';
 
 export default function MembersPage({ members: rawMembers, t, onViewMember, onEditMember, onAddMemberClick, onExportExcel, onResetPassword, onImportSuccess }) {
   const members = Array.isArray(rawMembers) ? rawMembers : [];
@@ -721,7 +722,7 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEd
                                   }}>
                                     <span>{child.gender === 'Male' ? '👦' : '👧'}</span>
                                     <span style={{ fontWeight: '500' }}>{child.name}{child.name_ta ? ` / ${child.name_ta}` : ''}</span>
-                                    <span style={{ color: '#94a3b8', fontSize: '12px' }}>{child.date_of_birth ?? child.dob}</span>
+                                    <span style={{ color: '#94a3b8', fontSize: '12px' }}>{formatDate(child.date_of_birth ?? child.dob) || '-'}</span>
                                   </div>
                                 ))}
                               </div>
@@ -791,6 +792,8 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEd
                                     if (key === 'father' && val) {
                                       const fatherObj = members.find(m => String(m.id) === String(val));
                                       if (fatherObj) displayVal = `${fatherObj.name} (${fatherObj.member_id})`;
+                                    } else if (key === 'date_of_birth' || key === 'dob') {
+                                      displayVal = formatDate(val) || 'None';
                                     }
                                     return (
                                       <div key={key} style={{ fontSize: '12px' }}>
@@ -805,7 +808,7 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEd
                                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
                                       {member.pending_update.children.map((child, idx) => (
                                         <div key={idx} style={{ fontSize: '12px', padding: '4px 8px', background: '#f8fafc', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
-                                          {child.name}{child.name_ta ? ` / ${child.name_ta}` : ''} ({child.date_of_birth || child.dob})
+                                          {child.name}{child.name_ta ? ` / ${child.name_ta}` : ''} ({formatDate(child.date_of_birth ?? child.dob) || '-'})
                                         </div>
                                       ))}
                                     </div>

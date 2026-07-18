@@ -1,5 +1,6 @@
 import React from 'react';
 import { styles } from '../utils/styles';
+import { formatDate } from '../utils/dateFormatter';
 
 export default function MemberDetailsModal({ member, t, onClose }) {
   const annualTax = member.annual_tax ?? member.annualTax ?? 0;
@@ -59,7 +60,7 @@ export default function MemberDetailsModal({ member, t, onClose }) {
           )}
           <div style={styles.detailItem}>
             <label>{t.dateOfBirth}</label>
-            <div>{dob}</div>
+            <div>{formatDate(dob) || '-'}</div>
           </div>
           <BilingualDetail
             label={t.fatherNameEnglish || t.fatherName}

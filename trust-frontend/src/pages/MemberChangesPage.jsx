@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { UserCheck, Check, X, Eye } from 'lucide-react';
 import { styles } from '../utils/styles';
 import { memberAPI } from '../services/api';
+import { formatDate } from '../utils/dateFormatter';
 
 export default function MemberChangesPage({ members, t, onEditMember, onImportSuccess }) {
   const [selectedChange, setSelectedChange] = useState(null);
@@ -213,12 +214,16 @@ export default function MemberChangesPage({ members, t, onEditMember, onImportSu
                       if (key === 'father' && val) {
                         const fatherObj = members.find(m => String(m.id) === String(val));
                         if (fatherObj) displayVal = `${fatherObj.name} (${fatherObj.member_id})`;
+                      } else if (key === 'date_of_birth' || key === 'dob') {
+                        displayVal = formatDate(val) || 'None';
                       }
 
                       let displayCurrent = String(currentValue || 'None');
                       if (key === 'father' && currentValue) {
                         const fatherObj = members.find(m => String(m.id) === String(currentValue));
                         if (fatherObj) displayCurrent = `${fatherObj.name} (${fatherObj.member_id})`;
+                      } else if (key === 'date_of_birth' || key === 'dob') {
+                        displayCurrent = formatDate(currentValue) || 'None';
                       }
 
                       return (
@@ -261,7 +266,7 @@ export default function MemberChangesPage({ members, t, onEditMember, onImportSu
                             borderRadius: '6px',
                             border: '1px solid #e2e8f0'
                           }}>
-                            {child.name}{child.name_ta ? ` / ${child.name_ta}` : ''} ({child.date_of_birth || child.dob})
+                            {child.name}{child.name_ta ? ` / ${child.name_ta}` : ''} ({formatDate(child.date_of_birth ?? child.dob) || '-'})
                           </div>
                         ))}
                       </div>
