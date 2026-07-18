@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Member, Announcement, Event, Meeting, TaxMaster, MemberTax, Transaction
+from decimal import Decimal
 
 
 class ChildSerializer(serializers.ModelSerializer):
@@ -251,6 +252,8 @@ class MemberUpdateSerializer(serializers.ModelSerializer):
                     serializable_fields['father'] = val.id
                 elif hasattr(val, 'strftime'):
                     serializable_fields[key] = val.strftime('%Y-%m-%d')
+                elif isinstance(val, Decimal):
+                    serializable_fields[key] = float(val)
                 else:
                     serializable_fields[key] = val
                     
