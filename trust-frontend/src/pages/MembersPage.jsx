@@ -38,10 +38,6 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEd
     fetchStaff();
   }, [fetchStaff]);
 
-  useEffect(() => {
-    setCurrentPageNum(1);
-  }, [searchTerm, filterStatus, columnFilters]);
-
   const setSearchValue = useCallback((v) => setSearchTerm(v), []);
   const searchTamilProps = useTamilInput(searchTerm, setSearchValue);
 
@@ -57,6 +53,10 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEd
     amount_due: '',
     status: ''
   });
+
+  useEffect(() => {
+    setCurrentPageNum(1);
+  }, [searchTerm, filterStatus, columnFilters]);
 
   const handleSort = (field) => {
     if (sortField === field) {
