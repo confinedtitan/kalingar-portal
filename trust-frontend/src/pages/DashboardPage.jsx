@@ -115,12 +115,6 @@ export default function DashboardPage({ isAdmin, members: rawMembers, payments: 
             </span>
           )}
         </div>
-        {isAdmin && (
-          <button onClick={exportToExcel} style={styles.exportButton}>
-            <Download size={20} />
-            {t.exportExcel}
-          </button>
-        )}
       </div>
 
       <div style={styles.statsGrid}>
