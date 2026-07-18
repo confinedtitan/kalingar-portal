@@ -127,6 +127,107 @@ class MemberViewSet(viewsets.ModelViewSet):
             'members_pending': total_pending,
         })
     
+    @action(detail=True, methods=['post'], url_path='approve-profile-update')
+    def approve_profile_update(self, request, pk=None):
+        """Approve a member's pending profile update"""
+        is_accountant = False
+        try:
+            profile = request.user.staff_profile
+            is_accountant = profile.role == 'ACCOUNTANT' and profile.is_active
+        except Exception:
+            pass
+            
+        if not (request.user.is_staff or is_accountant):
+            return Response({'error': 'Unauthorized access'}, status=status.HTTP_403_FORBIDDEN)
+            
+        member = self.get_object()
+        if member.profile_update_status != 'Pending' or not member.pending_update:
+            return Response({'error': 'No pending profile update found'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        pending_data = member.pending_update
+        fields = pending_data.get('fields', {})
+        children = pending_data.get('children', [])
+        
+        # Apply fields
+        for field, value in fields.items():
+            if field == 'father':
+                if value:
+                    try:
+                        member.father = Member.objects.get(id=value)
+                    except Member.DoesNotExist:
+                        pass
+                else:
+                    member.father = None
+            else:
+                setattr(member, field, value)
+                
+        # Clear pending status
+        member.pending_update = None
+        member.profile_update_status = 'None'
+        member.save()
+        
+        # Apply nested children updates
+        existing_children = {c.id: c for c in member.children_set.all()}
+        updated_ids = []
+        
+        for child_item in children:
+            child_id = child_item.get('id')
+            if child_id and child_id in existing_children:
+                child = existing_children[child_id]
+                child.name = child_item.get('name', child.name)
+                child.name_ta = child_item.get('name_ta', child.name_ta)
+                child.date_of_birth = child_item.get('date_of_birth', child.date_of_birth)
+                child.gender = child_item.get('gender', child.gender)
+                child.marital_status = child_item.get('marital_status', child.marital_status)
+                child.address = member.address
+                child.address_ta = member.address_ta
+                child.save()
+                updated_ids.append(child.id)
+            else:
+                new_child = Member.objects.create(
+                    father=member,
+                    name=child_item['name'],
+                    name_ta=child_item.get('name_ta', ''),
+                    date_of_birth=child_item['date_of_birth'],
+                    gender=child_item.get('gender'),
+                    marital_status=child_item.get('marital_status', 'Unmarried'),
+                    address=member.address,
+                    address_ta=member.address_ta,
+                    is_family_head=False,
+                    is_active=True,
+                    is_expired=False,
+                    phone=None,
+                    user=None,
+                    annual_tax=0.00
+                )
+                updated_ids.append(new_child.id)
+                
+        for child_id, child in existing_children.items():
+            if child_id not in updated_ids:
+                child.delete()
+                
+        return Response({'message': 'Profile update approved successfully'})
+        
+    @action(detail=True, methods=['post'], url_path='reject-profile-update')
+    def reject_profile_update(self, request, pk=None):
+        """Reject a member's pending profile update"""
+        is_accountant = False
+        try:
+            profile = request.user.staff_profile
+            is_accountant = profile.role == 'ACCOUNTANT' and profile.is_active
+        except Exception:
+            pass
+            
+        if not (request.user.is_staff or is_accountant):
+            return Response({'error': 'Unauthorized access'}, status=status.HTTP_403_FORBIDDEN)
+            
+        member = self.get_object()
+        member.pending_update = None
+        member.profile_update_status = 'None'
+        member.save()
+        
+        return Response({'message': 'Profile update rejected successfully'})
+
     @action(detail=True, methods=['post'])
     def add_child(self, request, pk=None):
         """Add a child to a member"""

@@ -159,6 +159,32 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEd
     setExpandedRow(expandedRow === id ? null : id);
   };
 
+  const handleApproveUpdate = async (id) => {
+    if (window.confirm('Are you sure you want to approve this profile update request?')) {
+      try {
+        await memberAPI.approveProfileUpdate(id);
+        alert('Profile update approved successfully!');
+        if (onImportSuccess) onImportSuccess();
+      } catch (error) {
+        console.error('Error approving profile update:', error);
+        alert('Failed to approve profile update.');
+      }
+    }
+  };
+
+  const handleRejectUpdate = async (id) => {
+    if (window.confirm('Are you sure you want to reject this profile update request?')) {
+      try {
+        await memberAPI.rejectProfileUpdate(id);
+        alert('Profile update request rejected.');
+        if (onImportSuccess) onImportSuccess();
+      } catch (error) {
+        console.error('Error rejecting profile update:', error);
+        alert('Failed to reject profile update.');
+      }
+    }
+  };
+
   const handleOpenImport = () => {
     setImportFile(null);
     setImportResult(null);
@@ -579,7 +605,23 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEd
                       {member.member_id || '-'}
                     </td>
                     <td style={styles.td}>
-                      <div>{member.name}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>{member.name}</span>
+                        {member.profile_update_status === 'Pending' && (
+                          <span style={{
+                            padding: '2px 6px',
+                            backgroundColor: '#fffbeb',
+                            color: '#b45309',
+                            border: '1px solid #fef3c7',
+                            borderRadius: '4px',
+                            fontSize: '10px',
+                            fontWeight: '600',
+                            letterSpacing: '0.3px',
+                          }}>
+                            {t.pendingUpdate || 'Pending Update'}
+                          </span>
+                        )}
+                      </div>
                       {member.name_ta && (
                         <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{member.name_ta}</div>
                       )}
@@ -688,6 +730,88 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEd
                           {!motherName && !spouseName && children.length === 0 && (
                             <div style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '13px' }}>
                               No additional family details available.
+                            </div>
+                          )}
+                          {member.profile_update_status === 'Pending' && (
+                            <div style={{
+                              gridColumn: '1 / -1',
+                              marginTop: '12px',
+                              padding: '16px',
+                              backgroundColor: '#fffbeb',
+                              border: '1px solid #fef3c7',
+                              borderRadius: '8px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '12px'
+                            }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '700', color: '#b45309', fontSize: '14px' }}>
+                                  ⚠️ {t.pendingUpdate || 'Pending Profile Update'}
+                                </div>
+                                <div style={{ display: 'flex', gap: '8px' }}>
+                                  <button
+                                    onClick={() => handleApproveUpdate(member.id)}
+                                    style={{
+                                      padding: '8px 16px',
+                                      backgroundColor: '#10b981',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: '6px',
+                                      cursor: 'pointer',
+                                      fontWeight: '600',
+                                      fontSize: '13px'
+                                    }}
+                                  >
+                                    ✅ {t.approve || 'Approve'}
+                                  </button>
+                                  <button
+                                    onClick={() => handleRejectUpdate(member.id)}
+                                    style={{
+                                      padding: '8px 16px',
+                                      backgroundColor: '#ef4444',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: '6px',
+                                      cursor: 'pointer',
+                                      fontWeight: '600',
+                                      fontSize: '13px'
+                                    }}
+                                  >
+                                    ❌ {t.reject || 'Reject'}
+                                  </button>
+                                </div>
+                              </div>
+                              <div style={{ fontSize: '13px', color: '#78350f', backgroundColor: '#fff', padding: '12px', borderRadius: '6px', border: '1px solid #fef3c7' }}>
+                                <div style={{ fontWeight: '600', marginBottom: '8px' }}>Proposed Changes:</div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px' }}>
+                                  {Object.entries(member.pending_update?.fields || {}).map(([key, val]) => {
+                                    if (val === '' || val === null || key === 'password') return null;
+                                    const friendlyKey = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                                    let displayVal = String(val);
+                                    if (key === 'father' && val) {
+                                      const fatherObj = members.find(m => String(m.id) === String(val));
+                                      if (fatherObj) displayVal = `${fatherObj.name} (${fatherObj.member_id})`;
+                                    }
+                                    return (
+                                      <div key={key} style={{ fontSize: '12px' }}>
+                                        <span style={{ fontWeight: '600' }}>{friendlyKey}:</span> {displayVal}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                                {member.pending_update?.children && member.pending_update.children.length > 0 && (
+                                  <div style={{ marginTop: '12px', borderTop: '1px solid #fef3c7', paddingTop: '8px' }}>
+                                    <span style={{ fontWeight: '600', fontSize: '12px' }}>Proposed Children:</span>
+                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
+                                      {member.pending_update.children.map((child, idx) => (
+                                        <div key={idx} style={{ fontSize: '12px', padding: '4px 8px', background: '#f8fafc', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
+                                          {child.name}{child.name_ta ? ` / ${child.name_ta}` : ''} ({child.date_of_birth || child.dob})
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           )}
                         </div>

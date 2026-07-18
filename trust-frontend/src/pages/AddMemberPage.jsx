@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { styles } from '../utils/styles';
 import { useTamilInput } from '../utils/useTamilInput';
 
-export default function AddMemberPage({ t, onAddMember, member, onUpdateMember, onCancel, members = [] }) {
+export default function AddMemberPage({ t, onAddMember, member, onUpdateMember, onCancel, members = [], isAdmin }) {
   const [formData, setFormData] = useState({
     name: '',
     nameTa: '',
@@ -30,36 +30,49 @@ export default function AddMemberPage({ t, onAddMember, member, onUpdateMember, 
 
   useEffect(() => {
     if (member) {
+      const pending = member.pending_update;
+      const fields = pending?.fields || {};
+      const pendingChildren = pending?.children || [];
+
       setFormData({
-        name: member.name || '',
-        nameTa: member.name_ta || '',
-        phone: member.phone || '',
+        name: fields.name ?? member.name ?? '',
+        nameTa: fields.name_ta ?? member.name_ta ?? '',
+        phone: fields.phone ?? member.phone ?? '',
         password: '',
-        referenceId: member.reference_id || '',
-        dob: member.date_of_birth || member.dob || '',
-        address: member.address || '',
-        addressTa: member.address_ta || '',
-        father: member.father || '',
-        fallbackFatherNameEn: member.fallback_father_name_en || '',
-        fallbackFatherNameTa: member.fallback_father_name_ta || '',
-        fatherName: member.father_name || '',
-        fatherNameTa: member.father_name_ta || '',
-        motherName: member.mother_name || '',
-        motherNameTa: member.mother_name_ta || '',
-        spouseName: member.spouse_name || '',
-        spouseNameTa: member.spouse_name_ta || '',
-        annualTax: member.annual_tax || 20000,
-        isFamilyHead: member.is_family_head || false,
-        isActive: member.is_active ?? true,
-        isExpired: member.is_expired ?? false,
-        children: (member.children || []).map(child => ({
-          id: child.id,
-          name: child.name,
-          nameTa: child.name_ta || '',
-          dob: child.date_of_birth || child.dob || '',
-          gender: child.gender || 'Male',
-          marital_status: child.marital_status || 'Unmarried'
-        }))
+        referenceId: fields.reference_id ?? member.reference_id ?? '',
+        dob: fields.date_of_birth ?? member.date_of_birth ?? member.dob ?? '',
+        address: fields.address ?? member.address ?? '',
+        addressTa: fields.address_ta ?? member.address_ta ?? '',
+        father: fields.father ?? member.father ?? '',
+        fallbackFatherNameEn: fields.fallback_father_name_en ?? member.fallback_father_name_en ?? '',
+        fallbackFatherNameTa: fields.fallback_father_name_ta ?? member.fallback_father_name_ta ?? '',
+        fatherName: fields.father_name ?? member.father_name ?? '',
+        fatherNameTa: fields.father_name_ta ?? member.father_name_ta ?? '',
+        motherName: fields.mother_name ?? member.mother_name ?? '',
+        motherNameTa: fields.mother_name_ta ?? member.mother_name_ta ?? '',
+        spouseName: fields.spouse_name ?? member.spouse_name ?? '',
+        spouseNameTa: fields.spouse_name_ta ?? member.spouse_name_ta ?? '',
+        annualTax: fields.annual_tax ?? member.annual_tax ?? 20000,
+        isFamilyHead: fields.is_family_head ?? member.is_family_head ?? false,
+        isActive: fields.is_active ?? member.is_active ?? true,
+        isExpired: fields.is_expired ?? member.is_expired ?? false,
+        children: pendingChildren.length > 0
+          ? pendingChildren.map(child => ({
+              id: child.id,
+              name: child.name,
+              nameTa: child.name_ta || '',
+              dob: child.date_of_birth || child.dob || '',
+              gender: child.gender || 'Male',
+              marital_status: child.marital_status || 'Unmarried'
+            }))
+          : (member.children || []).map(child => ({
+              id: child.id,
+              name: child.name,
+              nameTa: child.name_ta || '',
+              dob: child.date_of_birth || child.dob || '',
+              gender: child.gender || 'Male',
+              marital_status: child.marital_status || 'Unmarried'
+            }))
       });
     }
   }, [member]);
@@ -126,7 +139,11 @@ export default function AddMemberPage({ t, onAddMember, member, onUpdateMember, 
 
   return (
     <div style={styles.page}>
-      <h2 style={styles.pageTitle}>{t.addMember}</h2>
+      <h2 style={styles.pageTitle}>
+        {member 
+          ? (isAdmin ? (t.editMember || 'Edit Member') : (t.editProfile || 'Edit Profile')) 
+          : t.addMember}
+      </h2>
 
       <form onSubmit={handleSubmit} style={styles.form}>
         <div style={styles.formGrid}>
@@ -168,19 +185,21 @@ export default function AddMemberPage({ t, onAddMember, member, onUpdateMember, 
             />
           </div>
 
-          <div style={styles.formGroup}>
-            <label style={styles.formLabel}>{t.defaultPassword}</label>
-            <input
-              type="text"
-              value={formData.password || formData.phone}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              style={styles.formInput}
-              placeholder={t.defaultPasswordNote}
-            />
-            <small style={{ color: '#64748b', fontSize: '12px', marginTop: '4px' }}>
-              {t.defaultPasswordNote}
-            </small>
-          </div>
+          {isAdmin && (
+            <div style={styles.formGroup}>
+              <label style={styles.formLabel}>{t.defaultPassword}</label>
+              <input
+                type="text"
+                value={formData.password || formData.phone}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                style={styles.formInput}
+                placeholder={t.defaultPasswordNote}
+              />
+              <small style={{ color: '#64748b', fontSize: '12px', marginTop: '4px' }}>
+                {t.defaultPasswordNote}
+              </small>
+            </div>
+          )}
 
           <div style={styles.formGroup}>
             <label style={styles.formLabel}>{t.referenceId || 'Reference ID'}</label>
@@ -310,7 +329,7 @@ export default function AddMemberPage({ t, onAddMember, member, onUpdateMember, 
         </div>
 
         {/* Status and Promotion Settings (Only in Edit Mode) */}
-        {member && (
+        {member && isAdmin && (
           <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0', marginBottom: '24px' }}>
             <h4 style={{ margin: '0 0 16px 0', fontSize: '15px', fontWeight: '700', color: '#334155' }}>Status & Account Settings</h4>
             <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>

@@ -321,10 +321,21 @@ export default function App() {
         })),
       };
       await memberAPI.update(memberId, apiData);
-      showNotification('Member updated successfully!');
+      showNotification(isAdmin ? 'Member updated successfully!' : 'Profile update request submitted for approval!');
       fetchMembers();
+      
+      if (!isAdmin) {
+        try {
+          const memberResponse = await memberAPI.getMe();
+          setCurrentUser(memberResponse.data);
+          localStorage.setItem('current_user', JSON.stringify(memberResponse.data));
+        } catch (error) {
+          console.error('Error refreshing profile:', error);
+        }
+      }
+      
       setSelectedMember(null);
-      setCurrentPage('members');
+      setCurrentPage(isAdmin ? 'members' : 'myProfile');
     } catch (error) {
       console.error('Error updating member:', error);
       if (error.response && error.response.data) {
@@ -458,20 +469,22 @@ export default function App() {
               <AddMemberPage
                 t={t}
                 members={members}
+                isAdmin={isAdmin}
                 onAddMember={addMemberHandler}
                 onCancel={() => setCurrentPage('members')}
               />
             )}
 
-            {currentPage === 'editMember' && isAdmin && selectedMember && (
+            {currentPage === 'editMember' && selectedMember && (
               <AddMemberPage
                 t={t}
                 members={members}
                 member={selectedMember}
+                isAdmin={isAdmin}
                 onUpdateMember={updateMemberHandler}
                 onCancel={() => {
                   setSelectedMember(null);
-                  setCurrentPage('members');
+                  setCurrentPage(isAdmin ? 'members' : 'myProfile');
                 }}
               />
             )}
@@ -561,6 +574,10 @@ export default function App() {
               <MyProfilePage
                 member={currentUser}
                 t={t}
+                onEditProfile={(member) => {
+                  setSelectedMember(member);
+                  setCurrentPage('editMember');
+                }}
                 onChangePassword={async (oldPassword, newPassword) => {
                   await authAPI.changePassword(oldPassword, newPassword);
                   showNotification(t.passwordChanged);

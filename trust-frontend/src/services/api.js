@@ -72,6 +72,12 @@ export const memberAPI = {
     api.post('/members/import-excel/', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
+
+  approveProfileUpdate: (id) =>
+    api.post(`/members/${id}/approve-profile-update/`),
+
+  rejectProfileUpdate: (id) =>
+    api.post(`/members/${id}/reject-profile-update/`),
 };
 
 // Payments API

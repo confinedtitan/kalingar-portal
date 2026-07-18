@@ -20,6 +20,10 @@ class Member(models.Model):
     # Reference ID
     reference_id = models.CharField(max_length=20, blank=True, default='', verbose_name="Reference ID")
     
+    # Profile update approval queue
+    pending_update = models.JSONField(null=True, blank=True, verbose_name="Pending Profile Update")
+    profile_update_status = models.CharField(max_length=20, choices=[('None', 'None'), ('Pending', 'Pending'), ('Approved', 'Approved')], default='None', verbose_name="Profile Update Status")
+    
     # Personal Information
     name = models.CharField(max_length=200, verbose_name="Member Name")
     name_ta = models.CharField(max_length=200, blank=True, default='', verbose_name="Member Name (Tamil)")

@@ -209,7 +209,10 @@ export const translations = {
     taxCreatedError: 'Failed to create tax',
     taxGeneratedError: 'Failed to generate taxes',
     noTaxEvents: 'No tax events found.',
-    loading: 'Loading...'
+    loading: 'Loading...',
+    approve: 'Approve',
+    reject: 'Reject',
+    pendingUpdate: 'Pending Update'
   },
   ta: {
     appTitle: 'ஸ்ரீ ராமலட்சுமி அம்மன் திருக்கோவில், ஆறுமுகநேரி',
@@ -421,6 +424,9 @@ export const translations = {
     taxCreatedError: 'வரி உருவாக்க தோல்வி',
     taxGeneratedError: 'வரி உருவாକ்க தோல்வி',
     noTaxEvents: 'வரி நிகழ்வுகள் ஏதும் இல்லை.',
-    loading: 'ஏற்றவுகிறது...'
+    loading: 'ஏற்றவுகிறது...',
+    approve: 'அங்கீகரிக்கவும்',
+    reject: 'நிராகரிக்கவும்',
+    pendingUpdate: 'நிலுவையில் உள்ள மாற்றம்'
   }
 };

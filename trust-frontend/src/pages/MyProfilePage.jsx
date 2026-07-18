@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { styles } from '../utils/styles';
 import { formatDate } from '../utils/dateFormatter';
 
-export default function MyProfilePage({ member, t, onChangePassword }) {
+export default function MyProfilePage({ member, t, onEditProfile, onChangePassword }) {
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [passwordData, setPasswordData] = useState({
     oldPassword: '',
@@ -47,7 +47,45 @@ export default function MyProfilePage({ member, t, onChangePassword }) {
 
   return (
     <div style={styles.page}>
-      <h2 style={styles.pageTitle}>{t.myProfile}</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <h2 style={{ ...styles.pageTitle, margin: 0 }}>{t.myProfile}</h2>
+        <button
+          onClick={() => onEditProfile(member)}
+          style={{
+            padding: '10px 20px',
+            backgroundColor: '#4f46e5',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontWeight: '600',
+            fontSize: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          ✏️ {t.edit || 'Edit'}
+        </button>
+      </div>
+
+      {member.profile_update_status === 'Pending' && (
+        <div style={{
+          padding: '12px 20px',
+          backgroundColor: '#fffbeb',
+          border: '1px solid #fef3c7',
+          borderRadius: '8px',
+          color: '#b45309',
+          fontSize: '14px',
+          fontWeight: '500',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          ⚠️ {t.pendingApproval || 'Your profile update request is pending approval by admin/staff.'}
+        </div>
+      )}
 
       <div style={styles.profileCard}>
         <div style={styles.profileHeader}>

@@ -55,6 +55,7 @@ class MemberSerializer(serializers.ModelSerializer):
             'spouse_name', 'spouse_name_ta',
             'annual_tax', 'amount_paid', 'amount_due', 'payment_status',
             'is_active', 'is_expired', 'is_family_head', 'password_reset_required',
+            'pending_update', 'profile_update_status',
             'children', 'taxes', 'transactions', 'created_at', 'updated_at'
         ]
         read_only_fields = ['member_id', 'amount_due', 'password_reset_required', 'created_at', 'updated_at']
@@ -174,60 +175,103 @@ class MemberUpdateSerializer(serializers.ModelSerializer):
             'mother_name', 'mother_name_ta',
             'spouse_name', 'spouse_name_ta',
             'annual_tax', 'reference_id', 'is_active', 'is_expired', 'is_family_head',
+            'pending_update', 'profile_update_status',
             'children'
         ]
 
     def update(self, instance, validated_data):
         children_data = validated_data.pop('children', None)
         
-        # Update normal fields
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
+        request = self.context.get('request')
+        is_staff = request and request.user and (request.user.is_staff or getattr(request.user, 'is_superuser', False))
         
-        # Handle nested children updates
-        if children_data is not None:
-            existing_children = {c.id: c for c in instance.children_set.all()}
-            updated_ids = []
+        is_accountant = False
+        if request and request.user:
+            try:
+                profile = request.user.staff_profile
+                is_accountant = profile.role == 'ACCOUNTANT' and profile.is_active
+            except Exception:
+                pass
+                
+        if is_staff or is_accountant:
+            # Clear pending update since staff/admin is saving
+            instance.pending_update = None
+            instance.profile_update_status = 'None'
             
-            for child_item in children_data:
-                child_id = child_item.get('id')
-                if child_id and child_id in existing_children:
-                    child = existing_children[child_id]
-                    child.name = child_item.get('name', child.name)
-                    child.name_ta = child_item.get('name_ta', child.name_ta)
-                    child.date_of_birth = child_item.get('date_of_birth', child.date_of_birth)
-                    child.gender = child_item.get('gender', child.gender)
-                    child.marital_status = child_item.get('marital_status', child.marital_status)
-                    # Copy address from father
-                    child.address = instance.address
-                    child.address_ta = instance.address_ta
-                    child.save()
-                    updated_ids.append(child.id)
+            # Update normal fields
+            for attr, value in validated_data.items():
+                setattr(instance, attr, value)
+            instance.save()
+            
+            # Handle nested children updates
+            if children_data is not None:
+                existing_children = {c.id: c for c in instance.children_set.all()}
+                updated_ids = []
+                
+                for child_item in children_data:
+                    child_id = child_item.get('id')
+                    if child_id and child_id in existing_children:
+                        child = existing_children[child_id]
+                        child.name = child_item.get('name', child.name)
+                        child.name_ta = child_item.get('name_ta', child.name_ta)
+                        child.date_of_birth = child_item.get('date_of_birth', child.date_of_birth)
+                        child.gender = child_item.get('gender', child.gender)
+                        child.marital_status = child_item.get('marital_status', child.marital_status)
+                        child.address = instance.address
+                        child.address_ta = instance.address_ta
+                        child.save()
+                        updated_ids.append(child.id)
+                    else:
+                        new_child = Member.objects.create(
+                            father=instance,
+                            name=child_item['name'],
+                            name_ta=child_item.get('name_ta', ''),
+                            date_of_birth=child_item['date_of_birth'],
+                            gender=child_item.get('gender'),
+                            marital_status=child_item.get('marital_status', 'Unmarried'),
+                            address=instance.address,
+                            address_ta=instance.address_ta,
+                            is_family_head=False,
+                            is_active=True,
+                            is_expired=False,
+                            phone=None,
+                            user=None,
+                            annual_tax=0.00
+                        )
+                        updated_ids.append(new_child.id)
+                        
+                for child_id, child in existing_children.items():
+                    if child_id not in updated_ids:
+                        child.delete()
+        else:
+            # Member self-edit flow: save changes into pending_update field for admin approval
+            serializable_fields = {}
+            for key, val in validated_data.items():
+                if key == 'father' and val:
+                    serializable_fields['father'] = val.id
+                elif hasattr(val, 'strftime'):
+                    serializable_fields[key] = val.strftime('%Y-%m-%d')
                 else:
-                    new_child = Member.objects.create(
-                        father=instance,
-                        name=child_item['name'],
-                        name_ta=child_item.get('name_ta', ''),
-                        date_of_birth=child_item['date_of_birth'],
-                        gender=child_item.get('gender'),
-                        marital_status=child_item.get('marital_status', 'Unmarried'),
-                        address=instance.address,
-                        address_ta=instance.address_ta,
-                        is_family_head=False,
-                        is_active=True,
-                        is_expired=False,
-                        phone=None,
-                        user=None,
-                        annual_tax=0.00
-                    )
-                    updated_ids.append(new_child.id)
+                    serializable_fields[key] = val
                     
-            # Delete children not in updated_ids
-            for child_id, child in existing_children.items():
-                if child_id not in updated_ids:
-                    child.delete()
+            serializable_children = []
+            if children_data is not None:
+                for child in children_data:
+                    c_dict = {}
+                    for ck, cv in child.items():
+                        if ck == 'date_of_birth' and hasattr(cv, 'strftime'):
+                            c_dict[ck] = cv.strftime('%Y-%m-%d')
+                        else:
+                            c_dict[ck] = cv
+                    serializable_children.append(c_dict)
                     
+            instance.pending_update = {
+                'fields': serializable_fields,
+                'children': serializable_children
+            }
+            instance.profile_update_status = 'Pending'
+            instance.save()
+            
         return instance
 
 
@@ -251,6 +295,7 @@ class MemberListSerializer(serializers.ModelSerializer):
             'father_name', 'father_name_ta',
             'mother_name', 'mother_name_ta',
             'spouse_name', 'spouse_name_ta',
+            'pending_update', 'profile_update_status',
             'children', 'children_count', 'taxes', 'is_active', 'is_expired', 'is_family_head', 'password_reset_required'
         ]
     
