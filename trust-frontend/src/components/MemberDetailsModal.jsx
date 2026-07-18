@@ -51,6 +51,12 @@ export default function MemberDetailsModal({ member, t, onClose }) {
             <label>{t.phoneNumber}</label>
             <div>{member.phone}</div>
           </div>
+          {(member.reference_id || member.referenceId) && (
+            <div style={styles.detailItem}>
+              <label>{t.referenceId || 'Reference ID'}</label>
+              <div>{member.reference_id || member.referenceId}</div>
+            </div>
+          )}
           <div style={styles.detailItem}>
             <label>{t.dateOfBirth}</label>
             <div>{dob}</div>

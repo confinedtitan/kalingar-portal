@@ -46,7 +46,7 @@ class MemberSerializer(serializers.ModelSerializer):
     class Meta:  # type: ignore[assignment]
         model = Member
         fields = [
-            'id', 'member_id', 'username',
+            'id', 'member_id', 'reference_id', 'username',
             'name', 'name_ta', 'phone', 'date_of_birth',
             'address', 'address_ta',
             'father', 'fallback_father_name_en', 'fallback_father_name_ta',
@@ -101,7 +101,7 @@ class MemberCreateSerializer(serializers.ModelSerializer):
             'father_name', 'father_name_ta',
             'mother_name', 'mother_name_ta',
             'spouse_name', 'spouse_name_ta',
-            'annual_tax', 'children'
+            'annual_tax', 'reference_id', 'children'
         ]
     
     def validate_phone(self, value):
@@ -116,7 +116,7 @@ class MemberCreateSerializer(serializers.ModelSerializer):
         if not re.match(r'^\d{10}$', value):
             raise serializers.ValidationError("Phone number must be exactly 10 digits.")
         
-        if User.objects.filter(username=value).exists():
+        if Member.objects.filter(phone=value).exists():
             raise serializers.ValidationError("A member with this phone number already exists.")
         return value
     
@@ -130,12 +130,13 @@ class MemberCreateSerializer(serializers.ModelSerializer):
         validated_data['is_active'] = True
         validated_data['is_expired'] = False
         
-        user = User.objects.create_user(
-            username=validated_data['phone'],
-            password=password
-        )
+        # Create member (will trigger provision_credentials automatically with user=None)
+        member = Member.objects.create(**validated_data)
         
-        member = Member.objects.create(user=user, **validated_data)
+        # Update password for the automatically provisioned user
+        if member.user:
+            member.user.set_password(password)
+            member.user.save()
         
         # Create Children as Member rows
         for child_data in children_data:
@@ -172,7 +173,7 @@ class MemberUpdateSerializer(serializers.ModelSerializer):
             'father_name', 'father_name_ta',
             'mother_name', 'mother_name_ta',
             'spouse_name', 'spouse_name_ta',
-            'annual_tax', 'is_active', 'is_expired', 'is_family_head',
+            'annual_tax', 'reference_id', 'is_active', 'is_expired', 'is_family_head',
             'children'
         ]
 

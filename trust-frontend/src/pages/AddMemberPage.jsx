@@ -8,6 +8,7 @@ export default function AddMemberPage({ t, onAddMember, member, onUpdateMember, 
     nameTa: '',
     phone: '',
     password: '',
+    referenceId: '',
     dob: '',
     address: '',
     addressTa: '',
@@ -34,6 +35,7 @@ export default function AddMemberPage({ t, onAddMember, member, onUpdateMember, 
         nameTa: member.name_ta || '',
         phone: member.phone || '',
         password: '',
+        referenceId: member.reference_id || '',
         dob: member.date_of_birth || member.dob || '',
         address: member.address || '',
         addressTa: member.address_ta || '',
@@ -178,6 +180,18 @@ export default function AddMemberPage({ t, onAddMember, member, onUpdateMember, 
             <small style={{ color: '#64748b', fontSize: '12px', marginTop: '4px' }}>
               {t.defaultPasswordNote}
             </small>
+          </div>
+
+          <div style={styles.formGroup}>
+            <label style={styles.formLabel}>{t.referenceId || 'Reference ID'}</label>
+            <input
+              type="text"
+              value={formData.referenceId}
+              onChange={(e) => setFormData({ ...formData, referenceId: e.target.value.slice(0, 20) })}
+              style={styles.formInput}
+              placeholder="Enter Reference ID"
+              maxLength={20}
+            />
           </div>
 
 

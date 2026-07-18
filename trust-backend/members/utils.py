@@ -131,18 +131,14 @@ def create_member_from_dict(data):
     if not phone:
         return (None, False, f"No valid phone number for '{name}'")
 
-    # Check for existing user with this phone
-    if User.objects.filter(username=phone).exists():
+    # Check for existing member with this phone
+    if Member.objects.filter(phone=phone).exists():
         return (None, False, f"Phone {phone} already exists, skipping '{name}'")
 
     try:
         with transaction.atomic():
-            user = User.objects.create_user(
-                username=phone,
-                password=phone,  # default password = phone number
-            )
             member = Member(
-                user=user,
+                user=None,
                 name=name,
                 name_ta=data.get('name_ta', ''),
                 phone=phone,
@@ -158,7 +154,7 @@ def create_member_from_dict(data):
                 is_active=True,
                 is_expired=False,
             )
-            member.save()  # triggers auto-ID (KT-XXXX) and amount_due calc
+            member.save()  # triggers auto-ID (KT-XXXX) and amount_due calc, and provision_credentials!
         return (member, True, None)
     except Exception as exc:
         return (None, False, str(exc))
@@ -285,10 +281,10 @@ def calculate_member_tax_count(member):
 def provision_credentials(member):
     """
     Generate login credentials for a member promoted to family head.
-    Username is phone if available, else member_id.
+    Username is member_id.
     """
     if member.is_family_head and not member.user:
-        username = member.phone if member.phone else member.member_id
+        username = member.member_id
         if not username:
             # Save first to get member_id if missing
             member.save()

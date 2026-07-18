@@ -87,6 +87,12 @@ export default function MyProfilePage({ member, t, onChangePassword }) {
               <label>{t.phoneNumber}</label>
               <div>{member.phone}</div>
             </div>
+            {(member.reference_id || member.referenceId) && (
+              <div style={styles.profileField}>
+                <label>{t.referenceId || 'Reference ID'}</label>
+                <div>{member.reference_id || member.referenceId}</div>
+              </div>
+            )}
             <div style={styles.profileField}>
               <label>{t.dateOfBirth}</label>
               <div>{formatDate(member.date_of_birth ?? member.dob)}</div>

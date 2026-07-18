@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Users, Plus, DollarSign, GitBranch, User, FileText, BookOpen, List, PlusCircle, BarChart3, Gift, KeyRound, Briefcase } from 'lucide-react';
+import { Home, Users, Plus, DollarSign, GitBranch, User, FileText, BookOpen, List, PlusCircle, BarChart3, Gift, KeyRound, Briefcase, Settings } from 'lucide-react';
 import { styles } from '../utils/styles';
 
 export default function Sidebar({ isAdmin, isAccountant, currentPage, setCurrentPage, t }) {
@@ -20,12 +20,12 @@ export default function Sidebar({ isAdmin, isAccountant, currentPage, setCurrent
 
         {/* ── Change Password — visible to ALL users ── */}
         <NavBtn page="changePassword" icon={KeyRound} label={t.changePassword || 'Change Password'} />
+        <NavBtn page="settings" icon={Settings} label={t.settings || 'Settings'} />
 
         {/* ── Admin Navigation ── */}
         {isAdmin && (
           <>
             <NavBtn page="members" icon={Users} label={t.members} />
-            <NavBtn page="allPayments" icon={DollarSign} label={t.payments} />
             <NavBtn page="familyTree" icon={GitBranch} label={t.familyTree} />
             <NavBtn page="contentManagement" icon={FileText} label={t.contentManagement || 'Content'} />
             <NavBtn page="taxManagement" icon={DollarSign} label={t.taxManagement || 'Tax Management'} />

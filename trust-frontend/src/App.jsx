@@ -25,6 +25,7 @@ import MyDonationsPage from './pages/MyDonationsPage';
 import ChangePasswordPage from './pages/ChangePasswordPage';
 import TrustAccountsPage from './pages/TrustAccountsPage';
 import ReportsPage from './pages/ReportsPage';
+import SettingsPage from './pages/SettingsPage';
 import MemberDetailsModal from './components/MemberDetailsModal';
 import { translations } from './data/translations';
 import { styles } from './utils/styles';
@@ -249,6 +250,7 @@ export default function App() {
         name: memberData.name,
         name_ta: memberData.nameTa || '',
         phone: memberData.phone || null,
+        reference_id: memberData.referenceId || '',
         date_of_birth: memberData.dob,
         address: memberData.address,
         address_ta: memberData.addressTa || '',
@@ -292,6 +294,7 @@ export default function App() {
         name: memberData.name,
         name_ta: memberData.nameTa || '',
         phone: memberData.phone || null,
+        reference_id: memberData.referenceId || '',
         date_of_birth: memberData.dob,
         address: memberData.address,
         address_ta: memberData.addressTa || '',
@@ -579,6 +582,13 @@ export default function App() {
                 member={currentUser}
                 t={t}
                 onMakePayment={(amount, taxId) => makePaymentHandler(currentUser.id, amount, taxId)}
+              />
+            )}
+
+            {currentPage === 'settings' && (
+              <SettingsPage
+                t={t}
+                onShowNotification={showNotification}
               />
             )}
           </main>

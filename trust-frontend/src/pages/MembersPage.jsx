@@ -8,6 +8,9 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEd
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [expandedRow, setExpandedRow] = useState(null);
+  
+  const [currentPageNum, setCurrentPageNum] = useState(1);
+  const pageSize = Number(localStorage.getItem('pageSize') || 10);
 
   // Import modal state
   const [showImportModal, setShowImportModal] = useState(false);
@@ -34,6 +37,10 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEd
   useEffect(() => {
     fetchStaff();
   }, [fetchStaff]);
+
+  useEffect(() => {
+    setCurrentPageNum(1);
+  }, [searchTerm, filterStatus, columnFilters]);
 
   const setSearchValue = useCallback((v) => setSearchTerm(v), []);
   const searchTamilProps = useTamilInput(searchTerm, setSearchValue);
@@ -144,6 +151,9 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEd
           : valB - valA;
       }
     });
+
+  const totalPages = Math.ceil(filteredMembers.length / pageSize);
+  const displayedMembers = filteredMembers.slice((currentPageNum - 1) * pageSize, currentPageNum * pageSize);
 
   const toggleExpand = (id) => {
     setExpandedRow(expandedRow === id ? null : id);
@@ -549,7 +559,7 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEd
             </tr>
           </thead>
           <tbody>
-            {filteredMembers.map(member => {
+            {displayedMembers.map(member => {
               const annualTax = member.annual_tax ?? member.annualTax ?? 0;
               const amountPaid = member.amount_paid ?? member.amountPaid ?? 0;
               const amountDue = member.amount_due ?? member.amountDue ?? 0;
@@ -681,6 +691,61 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEd
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginTop: '20px',
+          padding: '12px 24px',
+          background: 'white',
+          borderRadius: '12px',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+        }}>
+          <button
+            disabled={currentPageNum === 1}
+            onClick={() => setCurrentPageNum(prev => Math.max(prev - 1, 1))}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: currentPageNum === 1 ? '#e2e8f0' : '#6366f1',
+              color: currentPageNum === 1 ? '#94a3b8' : 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: currentPageNum === 1 ? 'not-allowed' : 'pointer',
+              fontWeight: '600',
+              fontSize: '13px',
+              transition: 'all 0.2s'
+            }}
+          >
+            ← {t.previous || 'Previous'}
+          </button>
+          
+          <span style={{ fontSize: '14px', fontWeight: '600', color: '#475569' }}>
+            Page {currentPageNum} of {totalPages} ({filteredMembers.length} members)
+          </span>
+          
+          <button
+            disabled={currentPageNum === totalPages}
+            onClick={() => setCurrentPageNum(prev => Math.min(prev + 1, totalPages))}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: currentPageNum === totalPages ? '#e2e8f0' : '#6366f1',
+              color: currentPageNum === totalPages ? '#94a3b8' : 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: currentPageNum === totalPages ? 'not-allowed' : 'pointer',
+              fontWeight: '600',
+              fontSize: '13px',
+              transition: 'all 0.2s'
+            }}
+          >
+            {t.next || 'Next'} →
+          </button>
+        </div>
+      )}
 
       {/* ── Accountant Staff Management ── */}
       <div style={{ marginTop: '40px' }}>

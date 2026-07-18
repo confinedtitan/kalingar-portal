@@ -11,6 +11,9 @@ export default function TransactionListPage({ isAdmin, t, onAddTransactionClick 
     from: '', to: '', search: '',
   });
 
+  const [currentPageNum, setCurrentPageNum] = useState(1);
+  const pageSize = Number(localStorage.getItem('pageSize') || 10);
+
   const fetchTransactions = useCallback(async () => {
     try {
       const params = {};
@@ -25,6 +28,7 @@ export default function TransactionListPage({ isAdmin, t, onAddTransactionClick 
     accountingAPI.getAccountHeads().then(r => setHeads(Array.isArray(r.data) ? r.data : r.data?.results || [])).catch(console.error);
   }, []);
   useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
+  useEffect(() => { setCurrentPageNum(1); }, [filters]);
 
   const handleDelete = async (txn) => {
     if (!window.confirm(`Soft-delete this transaction of ₹${txn.amount}?`)) return;
@@ -40,6 +44,9 @@ export default function TransactionListPage({ isAdmin, t, onAddTransactionClick 
       document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
     } catch (err) { console.error(err); }
   };
+
+  const totalPages = Math.ceil(transactions.length / pageSize);
+  const displayedTransactions = transactions.slice((currentPageNum - 1) * pageSize, currentPageNum * pageSize);
 
   return (
     <div style={styles.page}>
@@ -96,7 +103,7 @@ export default function TransactionListPage({ isAdmin, t, onAddTransactionClick 
               <th style={styles.th}>{t.receiptNo || 'Receipt #'}</th><th style={styles.th}>{t.enteredBy || 'Entered By'}</th><th style={styles.th}>{t.actions}</th>
             </tr></thead>
             <tbody>
-              {transactions.map(txn => (
+              {displayedTransactions.map(txn => (
                 <tr key={txn.id} style={styles.tr}>
                   <td style={{...styles.td, fontSize:'13px', whiteSpace:'nowrap'}}>{txn.transaction_date}</td>
                   <td style={{...styles.td, fontWeight:'600'}}>{txn.account_head_name}</td>
@@ -140,6 +147,61 @@ export default function TransactionListPage({ isAdmin, t, onAddTransactionClick 
               {transactions.length===0 && <tr><td colSpan={9} style={{...styles.td, textAlign:'center', color:'#9ca3af', padding:'40px'}}>No transactions found.</td></tr>}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {!loading && totalPages > 1 && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginTop: '20px',
+          padding: '12px 24px',
+          background: 'white',
+          borderRadius: '12px',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+        }}>
+          <button
+            disabled={currentPageNum === 1}
+            onClick={() => setCurrentPageNum(prev => Math.max(prev - 1, 1))}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: currentPageNum === 1 ? '#e2e8f0' : '#4338ca',
+              color: currentPageNum === 1 ? '#94a3b8' : 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: currentPageNum === 1 ? 'not-allowed' : 'pointer',
+              fontWeight: '600',
+              fontSize: '13px',
+              transition: 'all 0.2s'
+            }}
+          >
+            ← {t.previous || 'Previous'}
+          </button>
+          
+          <span style={{ fontSize: '14px', fontWeight: '600', color: '#475569' }}>
+            Page {currentPageNum} of {totalPages} ({transactions.length} transactions)
+          </span>
+          
+          <button
+            disabled={currentPageNum === totalPages}
+            onClick={() => setCurrentPageNum(prev => Math.min(prev + 1, totalPages))}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: currentPageNum === totalPages ? '#e2e8f0' : '#4338ca',
+              color: currentPageNum === totalPages ? '#94a3b8' : 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: currentPageNum === totalPages ? 'not-allowed' : 'pointer',
+              fontWeight: '600',
+              fontSize: '13px',
+              transition: 'all 0.2s'
+            }}
+          >
+            {t.next || 'Next'} →
+          </button>
         </div>
       )}
     </div>

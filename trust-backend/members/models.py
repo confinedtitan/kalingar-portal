@@ -17,6 +17,9 @@ class Member(models.Model):
     # Unique Member ID (auto-generated)
     member_id = models.CharField(max_length=20, unique=True, blank=True, verbose_name="Member ID")
     
+    # Reference ID
+    reference_id = models.CharField(max_length=20, blank=True, default='', verbose_name="Reference ID")
+    
     # Personal Information
     name = models.CharField(max_length=200, verbose_name="Member Name")
     name_ta = models.CharField(max_length=200, blank=True, default='', verbose_name="Member Name (Tamil)")
