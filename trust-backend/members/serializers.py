@@ -244,9 +244,11 @@ class MemberListSerializer(serializers.ModelSerializer):
     class Meta:  # type: ignore[assignment]
         model = Member
         fields = [
-            'id', 'member_id', 'name', 'name_ta', 'phone', 'annual_tax', 'date_of_birth',
+            'id', 'member_id', 'reference_id', 'name', 'name_ta', 'phone', 'annual_tax', 'date_of_birth',
+            'address', 'address_ta',
             'amount_paid', 'amount_due', 'payment_status',
-            'father', 'father_name', 'father_name_ta',
+            'father', 'fallback_father_name_en', 'fallback_father_name_ta',
+            'father_name', 'father_name_ta',
             'mother_name', 'mother_name_ta',
             'spouse_name', 'spouse_name_ta',
             'children', 'children_count', 'taxes', 'is_active', 'is_expired', 'is_family_head', 'password_reset_required'

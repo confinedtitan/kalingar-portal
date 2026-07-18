@@ -635,6 +635,15 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEd
                           gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
                           gap: '12px',
                         }}>
+                          {fatherName && (
+                            <div>
+                              <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', marginBottom: '2px' }}>{t.fatherName}</div>
+                              <div style={{ fontSize: '14px', color: '#1e293b' }}>{fatherName}</div>
+                              {(member.father_name_ta || member.fatherNameTa) && (
+                                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{member.father_name_ta || member.fatherNameTa}</div>
+                              )}
+                            </div>
+                          )}
                           {motherName && (
                             <div>
                               <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '600', marginBottom: '2px' }}>{t.motherName}</div>
