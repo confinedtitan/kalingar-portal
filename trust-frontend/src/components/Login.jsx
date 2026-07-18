@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Phone, Eye, EyeOff } from 'lucide-react';
+import { User, Eye, EyeOff } from 'lucide-react';
 import { styles } from '../utils/styles';
 
 export default function Login({ onLogin, language, setLanguage, t }) {
@@ -31,15 +31,15 @@ export default function Login({ onLogin, language, setLanguage, t }) {
 
         <div style={styles.loginForm}>
           <div style={styles.inputGroup}>
-            <label style={styles.label}>{t.phoneNumber}</label>
+            <label style={styles.label}>{t.memberId || 'Member ID'}</label>
             <div style={styles.inputWithIcon}>
-              <Phone size={20} style={styles.inputIcon} />
+              <User size={20} style={styles.inputIcon} />
               <input
-                type="tel"
+                type="text"
                 value={loginPhone}
-                onChange={(e) => setLoginPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                onChange={(e) => setLoginPhone(e.target.value.slice(0, 10))}
                 style={styles.input}
-                placeholder="Enter 10 digit number"
+                placeholder={t.memberId || 'Member ID'}
                 maxLength={10}
               />
             </div>
