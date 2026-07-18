@@ -27,6 +27,7 @@ import TrustAccountsPage from './pages/TrustAccountsPage';
 import ReportsPage from './pages/ReportsPage';
 import SettingsPage from './pages/SettingsPage';
 import MemberDetailsModal from './components/MemberDetailsModal';
+import MemberChangesPage from './pages/MemberChangesPage';
 import { translations } from './data/translations';
 import { styles } from './utils/styles';
 import api, { authAPI, memberAPI, paymentAPI } from './services/api';
@@ -50,6 +51,7 @@ export default function App() {
   const [passwordResetRequired, setPasswordResetRequired] = useState(false);
   const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
   const [memberToReset, setMemberToReset] = useState(null);
+  const [editSource, setEditSource] = useState('members');
 
   const t = translations[language];
 
@@ -335,7 +337,7 @@ export default function App() {
       }
       
       setSelectedMember(null);
-      setCurrentPage(isAdmin ? 'members' : 'myProfile');
+      setCurrentPage(isAdmin ? editSource : 'myProfile');
     } catch (error) {
       console.error('Error updating member:', error);
       if (error.response && error.response.data) {
@@ -451,13 +453,15 @@ export default function App() {
               <MembersPage
                 members={members}
                 t={t}
-                onViewMember={handleViewMember}
+                onAddMemberClick={() => setCurrentPage('addMember')}
                 onEditMember={(member) => {
+                  setEditSource('members');
                   setSelectedMember(member);
                   setCurrentPage('editMember');
                 }}
-                onAddMemberClick={() => {
-                  setCurrentPage('addMember');
+                onViewMember={(member) => {
+                  setSelectedMember(member);
+                  setShowModal(true);
                 }}
                 onExportExcel={exportToExcel}
                 onResetPassword={handleResetPassword}
@@ -484,7 +488,7 @@ export default function App() {
                 onUpdateMember={updateMemberHandler}
                 onCancel={() => {
                   setSelectedMember(null);
-                  setCurrentPage(isAdmin ? 'members' : 'myProfile');
+                  setCurrentPage(isAdmin ? editSource : 'myProfile');
                 }}
               />
             )}
@@ -512,6 +516,19 @@ export default function App() {
             {currentPage === 'taxManagement' && isAdmin && (
               <TaxManagementPage
                 t={t}
+              />
+            )}
+
+            {currentPage === 'memberChanges' && (isAdmin || isAccountant) && (
+              <MemberChangesPage
+                members={members}
+                t={t}
+                onEditMember={(member) => {
+                  setEditSource('memberChanges');
+                  setSelectedMember(member);
+                  setCurrentPage('editMember');
+                }}
+                onImportSuccess={fetchMembers}
               />
             )}
 
@@ -575,6 +592,7 @@ export default function App() {
                 member={currentUser}
                 t={t}
                 onEditProfile={(member) => {
+                  setEditSource('myProfile');
                   setSelectedMember(member);
                   setCurrentPage('editMember');
                 }}
