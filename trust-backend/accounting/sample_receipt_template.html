@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ta">
+<head>
+    <meta charset="UTF-8">
+    <title>Temple Transaction Receipt</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 20mm;
+        }
+        {% if font_url %}
+        @font-face {
+            font-family: 'Noto Sans Tamil';
+            src: url('{{ font_url }}');
+        }
+        @font-face {
+            font-family: 'NotoSansTamil';
+            src: url('{{ font_url }}');
+        }
+        {% endif %}
+        body {
+            font-family: "Noto Sans Tamil", "NotoSansTamil", Arial, sans-serif;
+            color: #2c3e50;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #fff;
+        }
+        .receipt-card {
+            border: 2px solid #d97706;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 800px;
+            margin: auto;
+            position: relative;
+            background: #fff;
+        }
+        .watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-30deg);
+            font-size: 70px;
+            color: rgba(217, 119, 6, 0.05);
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px solid #f59e0b;
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+            z-index: 10;
+        }
+        .spiritual-line {
+            color: #d97706;
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .title {
+            color: #b45309;
+            font-size: 26px;
+            font-weight: 800;
+            margin: 5px 0;
+        }
+        .subtitle {
+            color: #6b7280;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        .receipt-meta {
+            display: table;
+            width: 100%;
+            margin-bottom: 25px;
+            z-index: 10;
+        }
+        .meta-col {
+            display: table-cell;
+            width: 50%;
+            font-size: 15px;
+        }
+        .meta-col.right {
+            text-align: right;
+        }
+        .meta-label {
+            font-weight: bold;
+            color: #4b5563;
+        }
+        .meta-val {
+            color: #111827;
+            font-weight: 600;
+        }
+        .details-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            margin-bottom: 25px;
+            z-index: 10;
+        }
+        .details-table th {
+            background-color: #fef3c7;
+            color: #92400e;
+            font-weight: 700;
+            text-align: left;
+            padding: 12px;
+            font-size: 15px;
+            border-bottom: 2px solid #f59e0b;
+        }
+        .details-table td {
+            padding: 12px;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 15px;
+        }
+        .amount-box {
+            background: #fffbeb;
+            border: 1px dashed #d97706;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            font-size: 20px;
+            font-weight: bold;
+            color: #b45309;
+            margin-top: 20px;
+            margin-bottom: 30px;
+        }
+        .footer {
+            margin-top: 40px;
+            display: table;
+            width: 100%;
+            z-index: 10;
+        }
+        .sig-box {
+            display: table-cell;
+            width: 50%;
+            text-align: center;
+        }
+        .sig-box.right {
+            text-align: right;
+            padding-right: 20px;
+        }
+        .sig-image {
+            max-width: 150px;
+            max-height: 50px;
+            margin-bottom: 5px;
+        }
+        .sig-title {
+            font-size: 14px;
+            color: #4b5563;
+            border-top: 1px dotted #9ca3af;
+            display: inline-block;
+            padding-top: 5px;
+            margin-top: 5px;
+            width: 180px;
+        }
+        .note {
+            text-align: center;
+            font-size: 12px;
+            color: #9ca3af;
+            margin-top: 30px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+<div class="receipt-card">
+    <div class="watermark">TEMPLE</div>
+    
+    <div class="header">
+        <div class="spiritual-line">ஸ்ரீ ராமஜெயம் | Sri Ramajeyam</div>
+        <div class="title">ஸ்ரீ ராமலிங்கசுவாமி அம்பன் கோவில்</div>
+        <div class="subtitle">ஆறுமுகநேரி / Arumuganeri Temple Trust</div>
+    </div>
+
+    <div class="receipt-meta">
+        <div class="meta-col">
+            <span class="meta-label">ரசீது எண் / Receipt No:</span> 
+            <span class="meta-val">{{ receipt_no|default:"N/A" }}</span>
+        </div>
+        <div class="meta-col right">
+            <span class="meta-label">தேதி / Date:</span> 
+            <span class="meta-val">{{ transaction.transaction_date|date:"d-b-Y"|default:"____" }}</span>
+        </div>
+    </div>
+
+    <table class="details-table">
+        <thead>
+            <tr>
+                <th style="width: 40%;">விவரம் / Particulars</th>
+                <th>தகவல் / Details</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>பெயர் / Name:</strong></td>
+                <td>{{ name_ta }} / {{ name }}</td>
+            </tr>
+            {% if member.member_id %}
+            <tr>
+                <td><strong>உறுப்பினர் எண் / Member ID:</strong></td>
+                <td>{{ member.member_id }}</td>
+            </tr>
+            {% endif %}
+            {% if member.phone %}
+            <tr>
+                <td><strong>தொலைபேசி / Phone:</strong></td>
+                <td>{{ member.phone }}</td>
+            </tr>
+            {% endif %}
+            {% if member.address_city_ta %}
+            <tr>
+                <td><strong>ஊர் / City:</strong></td>
+                <td>{{ member.address_city_ta }} / {{ member.address_city|default:"" }}</td>
+            </tr>
+            {% endif %}
+            <tr>
+                <td><strong>கணக்கு தலைப்பு / Account Head:</strong></td>
+                <td>{{ transaction.account_head.name_ta|default:transaction.account_head.name }}</td>
+            </tr>
+            <tr>
+                <td><strong>செலுத்தும் முறை / Payment Mode:</strong></td>
+                <td>
+                    {% if transaction.payment_mode == 'Commodities' %}
+                        பொருட்கள் / Commodities ({{ transaction.commodity_type }})
+                    {% else %}
+                        {{ transaction.payment_mode }}
+                    {% endif %}
+                </td>
+            </tr>
+            {% if transaction.purpose %}
+            <tr>
+                <td><strong>நோக்கம் / Purpose:</strong></td>
+                <td>{{ transaction.purpose_ta|default:transaction.purpose }}</td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+
+    <div class="amount-box">
+        பெறப்பட்ட தொகை / Amount Paid: ₹ {{ amount }}
+    </div>
+
+    <div class="footer">
+        <div class="sig-box">
+            <br><br>
+            <div class="sig-title">செலுத்துபவர் கையொப்பம்<br>Donor's Signature</div>
+        </div>
+        <div class="sig-box right">
+            {% if custodian_signature %}
+                <img class="sig-image" src="{{ custodian_signature }}" alt="Signature"><br>
+            {% else %}
+                <br><br>
+            {% endif %}
+            <div class="sig-title">நிர்வாகி கையொப்பம்<br>Authorized Signatory</div>
+        </div>
+    </div>
+
+    <div class="note">
+        ரசீது இல்லாமல் பணம் கொடுத்தால் செல்லாது / Invalid without official receipt signature
+    </div>
+</div>
+
+</body>
+</html>

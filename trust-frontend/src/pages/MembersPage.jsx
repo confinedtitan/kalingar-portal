@@ -48,11 +48,13 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEd
     member_id: '',
     name: '',
     phone: '',
-    father_name: '',
     annual_tax: '',
     amount_paid: '',
-    amount_due: '',
-    status: ''
+    address_city: '',
+    tax_count: '',
+    old_balance: '',
+    reference_id: '',
+    due_balance: ''
   });
 
   useEffect(() => {
@@ -78,7 +80,11 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEd
         (m.phone && m.phone.includes(searchTerm));
       if (!matchesSearch) return false;
 
-      const due = m.amount_due ?? m.amountDue ?? 0;
+      const oldBal = Number(m.old_balance ?? m.oldBalance ?? 0.00);
+      const annTax = Number(m.annual_tax ?? m.annualTax ?? 0.00);
+      const amtPaid = Number(m.amount_paid ?? m.amountPaid ?? 0.00);
+      const due = oldBal + annTax - amtPaid;
+
       const matchesFilter = filterStatus === 'all' ||
         (filterStatus === 'paid' && due === 0) ||
         (filterStatus === 'pending' && due > 0);
@@ -91,24 +97,25 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEd
         const nameVal = `${m.name} ${m.name_ta || ''}`.toLowerCase();
         if (!nameVal.includes(columnFilters.name.toLowerCase())) return false;
       }
+
+      if (columnFilters.reference_id && !(m.reference_id || m.referenceId || '').toLowerCase().includes(columnFilters.reference_id.toLowerCase())) return false;
       
       if (columnFilters.phone && !(m.phone || '').toLowerCase().includes(columnFilters.phone.toLowerCase())) return false;
       
-      if (columnFilters.father_name) {
-        const fatherVal = `${m.father_name ?? m.fatherName ?? ''} ${m.father_name_ta ?? m.fatherNameTa ?? ''}`.toLowerCase();
-        if (!fatherVal.includes(columnFilters.father_name.toLowerCase())) return false;
+      if (columnFilters.address_city) {
+        const cityVal = `${m.address_city ?? m.addressCity ?? ''} ${m.address_city_ta ?? m.addressCityTa ?? ''}`.toLowerCase();
+        if (!cityVal.includes(columnFilters.address_city.toLowerCase())) return false;
       }
+      
+      if (columnFilters.tax_count && !String(m.tax_count ?? m.taxCount ?? 1.0).includes(columnFilters.tax_count)) return false;
+      
+      if (columnFilters.old_balance && !String(m.old_balance ?? m.oldBalance ?? 0.00).includes(columnFilters.old_balance)) return false;
       
       if (columnFilters.annual_tax && !String(m.annual_tax ?? m.annualTax ?? 0).includes(columnFilters.annual_tax)) return false;
       
       if (columnFilters.amount_paid && !String(m.amount_paid ?? m.amountPaid ?? 0).includes(columnFilters.amount_paid)) return false;
       
-      if (columnFilters.amount_due && !String(m.amount_due ?? m.amountDue ?? 0).includes(columnFilters.amount_due)) return false;
-      
-      if (columnFilters.status) {
-        const statusVal = due === 0 ? 'paid' : 'pending';
-        if (columnFilters.status !== 'all' && statusVal !== columnFilters.status) return false;
-      }
+      if (columnFilters.due_balance && !String(due).includes(columnFilters.due_balance)) return false;
 
       return true;
     })
@@ -122,24 +129,30 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEd
       } else if (sortField === 'name') {
         valA = a.name || '';
         valB = b.name || '';
+      } else if (sortField === 'reference_id') {
+        valA = a.reference_id || a.referenceId || '';
+        valB = b.reference_id || b.referenceId || '';
       } else if (sortField === 'phone') {
         valA = a.phone || '';
         valB = b.phone || '';
-      } else if (sortField === 'father_name') {
-        valA = a.father_name ?? a.fatherName ?? '';
-        valB = b.father_name ?? b.fatherName ?? '';
+      } else if (sortField === 'address_city') {
+        valA = a.address_city ?? a.addressCity ?? '';
+        valB = b.address_city ?? b.addressCity ?? '';
+      } else if (sortField === 'tax_count') {
+        valA = Number(a.tax_count ?? a.taxCount ?? 1.0);
+        valB = Number(b.tax_count ?? b.taxCount ?? 1.0);
+      } else if (sortField === 'old_balance') {
+        valA = Number(a.old_balance ?? a.oldBalance ?? 0.00);
+        valB = Number(b.old_balance ?? b.oldBalance ?? 0.00);
       } else if (sortField === 'annual_tax') {
         valA = Number(a.annual_tax ?? a.annualTax ?? 0);
         valB = Number(b.annual_tax ?? b.annualTax ?? 0);
       } else if (sortField === 'amount_paid') {
         valA = Number(a.amount_paid ?? a.amountPaid ?? 0);
         valB = Number(b.amount_paid ?? b.amountPaid ?? 0);
-      } else if (sortField === 'amount_due') {
-        valA = Number(a.amount_due ?? a.amountDue ?? 0);
-        valB = Number(b.amount_due ?? b.amountDue ?? 0);
-      } else if (sortField === 'status') {
-        valA = (a.amount_due ?? a.amountDue ?? 0) === 0 ? 'paid' : 'pending';
-        valB = (b.amount_due ?? b.amountDue ?? 0) === 0 ? 'paid' : 'pending';
+      } else if (sortField === 'due_balance') {
+        valA = Number(a.old_balance ?? a.oldBalance ?? 0) + Number(a.annual_tax ?? a.annualTax ?? 0) - Number(a.amount_paid ?? a.amountPaid ?? 0);
+        valB = Number(b.old_balance ?? b.oldBalance ?? 0) + Number(b.annual_tax ?? b.annualTax ?? 0) - Number(b.amount_paid ?? b.amountPaid ?? 0);
       }
 
       if (typeof valA === 'string') {
@@ -498,28 +511,56 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEd
               </th>
               <th style={styles.th}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => handleSort('phone')}>
-                    {t.phoneNumber} {sortField === 'phone' ? (sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
+                  <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => handleSort('reference_id')}>
+                    {t.referenceId || 'Reference ID'} {sortField === 'reference_id' ? (sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
                   </div>
                   <input
                     type="text"
                     placeholder="Filter"
-                    value={columnFilters.phone}
-                    onChange={(e) => setColumnFilters({ ...columnFilters, phone: e.target.value })}
+                    value={columnFilters.reference_id}
+                    onChange={(e) => setColumnFilters({ ...columnFilters, reference_id: e.target.value })}
                     style={{ fontSize: '11px', padding: '4px 6px', border: '1px solid #cbd5e1', borderRadius: '4px', width: '100%', boxSizing: 'border-box', fontWeight: 'normal', marginTop: '6px', color: '#334155', backgroundColor: '#ffffff' }}
                   />
                 </div>
               </th>
               <th style={styles.th}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => handleSort('father_name')}>
-                    {t.fatherName} {sortField === 'father_name' ? (sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
+                  <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => handleSort('tax_count')}>
+                    {t.taxCount || 'Tax Count'} {sortField === 'tax_count' ? (sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
                   </div>
                   <input
                     type="text"
                     placeholder="Filter"
-                    value={columnFilters.father_name}
-                    onChange={(e) => setColumnFilters({ ...columnFilters, father_name: e.target.value })}
+                    value={columnFilters.tax_count}
+                    onChange={(e) => setColumnFilters({ ...columnFilters, tax_count: e.target.value })}
+                    style={{ fontSize: '11px', padding: '4px 6px', border: '1px solid #cbd5e1', borderRadius: '4px', width: '100%', boxSizing: 'border-box', fontWeight: 'normal', marginTop: '6px', color: '#334155', backgroundColor: '#ffffff' }}
+                  />
+                </div>
+              </th>
+              <th style={styles.th}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => handleSort('address_city')}>
+                    {t.city || 'City / Town'} {sortField === 'address_city' ? (sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Filter"
+                    value={columnFilters.address_city}
+                    onChange={(e) => setColumnFilters({ ...columnFilters, address_city: e.target.value })}
+                    style={{ fontSize: '11px', padding: '4px 6px', border: '1px solid #cbd5e1', borderRadius: '4px', width: '100%', boxSizing: 'border-box', fontWeight: 'normal', marginTop: '6px', color: '#334155', backgroundColor: '#ffffff' }}
+                  />
+                </div>
+              </th>
+              <th style={styles.th}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => handleSort('old_balance')}>
+                    {t.lastYearBalanceCol || 'Last Year Balance (₹)'} {sortField === 'old_balance' ? (sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Filter"
+                    value={columnFilters.old_balance}
+                    onChange={(e) => setColumnFilters({ ...columnFilters, old_balance: e.target.value })}
                     style={{ fontSize: '11px', padding: '4px 6px', border: '1px solid #cbd5e1', borderRadius: '4px', width: '100%', boxSizing: 'border-box', fontWeight: 'normal', marginTop: '6px', color: '#334155', backgroundColor: '#ffffff' }}
                   />
                 </div>
@@ -527,7 +568,7 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEd
               <th style={styles.th}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => handleSort('annual_tax')}>
-                    {t.annualTax} {sortField === 'annual_tax' ? (sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
+                    {t.taxCol || 'Tax (₹)'} {sortField === 'annual_tax' ? (sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
                   </div>
                   <input
                     type="text"
@@ -541,7 +582,7 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEd
               <th style={styles.th}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => handleSort('amount_paid')}>
-                    {t.amountPaid} {sortField === 'amount_paid' ? (sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
+                    {t.paidCol || 'Paid (₹)'} {sortField === 'amount_paid' ? (sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
                   </div>
                   <input
                     type="text"
@@ -554,32 +595,30 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEd
               </th>
               <th style={styles.th}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => handleSort('amount_due')}>
-                    {t.amountDue} {sortField === 'amount_due' ? (sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
+                  <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => handleSort('due_balance')}>
+                    {t.dueCol || 'Due (₹)'} {sortField === 'due_balance' ? (sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
                   </div>
                   <input
                     type="text"
                     placeholder="Filter"
-                    value={columnFilters.amount_due}
-                    onChange={(e) => setColumnFilters({ ...columnFilters, amount_due: e.target.value })}
+                    value={columnFilters.due_balance}
+                    onChange={(e) => setColumnFilters({ ...columnFilters, due_balance: e.target.value })}
                     style={{ fontSize: '11px', padding: '4px 6px', border: '1px solid #cbd5e1', borderRadius: '4px', width: '100%', boxSizing: 'border-box', fontWeight: 'normal', marginTop: '6px', color: '#334155', backgroundColor: '#ffffff' }}
                   />
                 </div>
               </th>
               <th style={styles.th}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => handleSort('status')}>
-                    {t.status} {sortField === 'status' ? (sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
+                  <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }} onClick={() => handleSort('phone')}>
+                    {t.phoneNumber} {sortField === 'phone' ? (sortDirection === 'asc' ? '▲' : '▼') : '⇅'}
                   </div>
-                  <select
-                    value={columnFilters.status}
-                    onChange={(e) => setColumnFilters({ ...columnFilters, status: e.target.value })}
+                  <input
+                    type="text"
+                    placeholder="Filter"
+                    value={columnFilters.phone}
+                    onChange={(e) => setColumnFilters({ ...columnFilters, phone: e.target.value })}
                     style={{ fontSize: '11px', padding: '4px 6px', border: '1px solid #cbd5e1', borderRadius: '4px', width: '100%', boxSizing: 'border-box', fontWeight: 'normal', marginTop: '6px', color: '#334155', backgroundColor: '#ffffff' }}
-                  >
-                    <option value="">All</option>
-                    <option value="paid">Paid</option>
-                    <option value="pending">Pending</option>
-                  </select>
+                  />
                 </div>
               </th>
               <th style={styles.th}>{t.actions}</th>
@@ -589,7 +628,6 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEd
             {displayedMembers.map(member => {
               const annualTax = member.annual_tax ?? member.annualTax ?? 0;
               const amountPaid = member.amount_paid ?? member.amountPaid ?? 0;
-              const amountDue = member.amount_due ?? member.amountDue ?? 0;
               const fatherName = member.father_name ?? member.fatherName ?? '';
               const motherName = member.mother_name ?? member.motherName ?? '';
               const spouseName = member.spouse_name ?? member.spouseName ?? '';
@@ -627,21 +665,21 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEd
                         <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{member.name_ta}</div>
                       )}
                     </td>
-                    <td style={styles.td}>{member.phone}</td>
+                    <td style={styles.td}>{member.reference_id || member.referenceId || '-'}</td>
+                    <td style={styles.td}>{Number(member.tax_count ?? member.taxCount ?? 1.0).toFixed(1)}</td>
                     <td style={styles.td}>
-                      <div>{fatherName}</div>
-                      {(member.father_name_ta || member.fatherNameTa) && (
-                        <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{member.father_name_ta || member.fatherNameTa}</div>
+                      <div>{member.address_city ?? member.addressCity ?? '-'}</div>
+                      {(member.address_city_ta || member.addressCityTa) && (
+                        <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>{member.address_city_ta || member.addressCityTa}</div>
                       )}
                     </td>
-                    <td style={styles.td}>₹{Number(annualTax).toLocaleString()}</td>
-                    <td style={styles.td}>₹{Number(amountPaid).toLocaleString()}</td>
-                    <td style={styles.td}>₹{Number(amountDue).toLocaleString()}</td>
+                    <td style={styles.td}>{Number(member.old_balance ?? member.oldBalance ?? 0.00).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                    <td style={styles.td}>{Number(annualTax).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                    <td style={styles.td}>{Number(amountPaid).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                     <td style={styles.td}>
-                      <span style={Number(amountDue) === 0 ? styles.statusPaid : styles.statusPending}>
-                        {Number(amountDue) === 0 ? t.paid : t.pending}
-                      </span>
+                      {(Number(member.old_balance ?? member.oldBalance ?? 0) + Number(annualTax) - Number(amountPaid)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </td>
+                    <td style={styles.td}>{member.phone || '-'}</td>
                     <td style={styles.td}>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                         <button onClick={() => onViewMember(member)} style={styles.actionButton}>
@@ -669,7 +707,7 @@ export default function MembersPage({ members: rawMembers, t, onViewMember, onEd
                   </tr>
                   {isExpanded && (
                     <tr>
-                      <td colSpan={9} style={{ padding: '0', border: 'none' }}>
+                      <td colSpan={12} style={{ padding: '0', border: 'none' }}>
                         <div style={{
                           background: '#f8f9fa',
                           padding: '16px 24px',

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ta">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Temple Receipt</title>
+
+    <style>
+        {% if font_url %}
+        @font-face {
+            font-family: 'Noto Sans Tamil';
+            src: url('{{ font_url }}');
+        }
+        @font-face {
+            font-family: 'NotoSansTamil';
+            src: url('{{ font_url }}');
+        }
+        {% endif %}
+        body {
+            font-family: "Noto Sans Tamil", "NotoSansTamil", sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: #f4f4f4;
+        }
+
+        .receipt {
+            width: 700px;
+            padding: 20px;
+            background: #fff;
+            border: 1px solid #ccc;
+            color: #008000;
+        }
+
+        .header {
+            text-align: center;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .sub-header {
+            text-align: center;
+            font-size: 22px;
+            font-weight: bold;
+            text-decoration: underline;
+            margin: 10px 0 20px;
+        }
+
+        .top {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .serial {
+            font-size: 42px;
+            color: black;
+            font-weight: bold;
+        }
+
+        .field {
+            margin: 15px 0;
+            font-size: 20px;
+            line-height: 2;
+        }
+
+        .line {
+            display: inline-block;
+            width: 250px;
+            border-bottom: 1px dotted black;
+        }
+
+        .amount {
+            font-weight: bold;
+        }
+
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 50px;
+            font-size: 20px;
+        }
+
+        .note {
+            text-align: center;
+            margin-top: 25px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        @media print {
+            body {
+                background: white;
+            }
+
+            .receipt {
+                border: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="receipt">
+
+        <div class="header">
+            ஆறுமுகநேரி ஸ்ரீ ராமலிங்கசுவாமி அம்பன் கோவில்
+        </div>
+
+        <div class="sub-header">
+            உறைம வரி வந்தல் ரசீது
+        </div>
+
+        <div class="top">
+            <span>எண்.{{e}}</span>
+            <span class="serial">157</span>
+            <span style="margin-left:auto;">தேதி: ____</span>
+        </div>
+
+        <div class="field">
+            கணக்கு எண் {{account_number}}<span class="line"></span>
+            <span class="amount"></span> ரூபாய் பெற்றுக் கொண்டோம்.
+        </div>
+
+        <div class="field">
+            திரு / திருமதி : {{member.name_ta}}
+            <span class="line" style="width:420px;"></span>
+        </div>
+
+        <div class="field">
+            இவர்களிடமிருந்து : {{amount_paid}}
+            <span class="line" style="width:400px;"></span>
+        </div>
+
+        <div class="field">
+            பெற்றுக் கொண்டோம்.
+        </div>
+
+        <div class="footer">
+            <span>செயலாளர்</span>
+            <span>நிர்வாகி</span>
+        </div>
+
+        <div class="note">
+            ரசீது இல்லாமல் பணம் கொடுத்தால் செல்லாது
+        </div>
+
+    </div>
+
+</body>
+
+</html>

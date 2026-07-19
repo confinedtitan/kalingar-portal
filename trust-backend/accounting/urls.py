@@ -7,6 +7,7 @@ from .views import (
     AccountTransactionViewSet,
     ReceiptViewSet,
     TrustAccountViewSet,
+    SystemSettingsView,
 )
 
 router = DefaultRouter()
@@ -17,5 +18,6 @@ router.register(r'receipts', ReceiptViewSet, basename='receipt')
 router.register(r'trust-accounts', TrustAccountViewSet, basename='trustaccount')
 
 urlpatterns = [
+    path('settings/', SystemSettingsView.as_view(), name='system-settings'),
     path('', include(router.urls)),
 ]

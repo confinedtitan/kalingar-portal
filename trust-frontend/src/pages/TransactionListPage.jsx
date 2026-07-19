@@ -99,7 +99,7 @@ export default function TransactionListPage({ isAdmin, t, onAddTransactionClick 
           <table style={{...styles.table, minWidth:'1100px'}}>
             <thead><tr>
               <th style={styles.th}>{t.date}</th><th style={styles.th}>{t.accountHeads || 'Account Head'}</th><th style={styles.th}>{t.type || 'Type'}</th>
-              <th style={styles.th}>{t.amount}</th><th style={styles.th}>{t.mode || 'Mode'}</th><th style={styles.th}>{t.donorPayee || 'Donor/Payee'}</th>
+              <th style={styles.th}>{t.amount} (₹)</th><th style={styles.th}>{t.mode || 'Mode'}</th><th style={styles.th}>{t.donorPayee || 'Donor/Payee'}</th>
               <th style={styles.th}>{t.receiptNo || 'Receipt #'}</th><th style={styles.th}>{t.enteredBy || 'Entered By'}</th><th style={styles.th}>{t.actions}</th>
             </tr></thead>
             <tbody>
@@ -115,7 +115,7 @@ export default function TransactionListPage({ isAdmin, t, onAddTransactionClick 
                     </span>
                   </td>
                   <td style={{...styles.td, fontWeight:'700', color: txn.transaction_type==='CREDIT'?'#059669':'#dc2626'}}>
-                    ₹{Number(txn.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                    {Number(txn.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                   <td style={{...styles.td, fontSize:'13px'}}>{txn.payment_mode}</td>
                   <td style={styles.td}>
                     {txn.transaction_type === 'CREDIT' ? (

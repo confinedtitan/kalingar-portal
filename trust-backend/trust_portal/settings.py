@@ -197,3 +197,7 @@ TRUST_CONFIG = {
     'address': '',  # Fill in with actual trust address
     'logo_path': None,  # Optional: absolute path to logo image file
 }
+
+# Receipt HTML template configuration
+ACTIVE_RECEIPT_TEMPLATE = None
+CUSTODIAN_SIGNATURE_PATH = None

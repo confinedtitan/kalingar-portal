@@ -846,3 +846,98 @@ def _get_display_name(user):
     except Exception:
         pass
     return user.get_username()
+
+
+from rest_framework.views import APIView
+import glob
+import os
+from django.conf import settings
+
+class SystemSettingsView(APIView):
+    """
+    API endpoint to get and set system-level receipt templates.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsAccountantOrAdmin]
+
+    def get(self, request):
+        # Load active settings
+        settings_path = os.path.join(settings.BASE_DIR, 'accounting', 'system_settings.json')
+        active_template = "tax_receipt_template.html"
+        if os.path.exists(settings_path):
+            try:
+                with open(settings_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    active_template = data.get('active_receipt_template', 'tax_receipt_template.html')
+            except Exception:
+                pass
+
+        # Scan folder for HTML files
+        dir_path = os.path.join(settings.BASE_DIR, 'accounting')
+        html_files = glob.glob(os.path.join(dir_path, '*.html'))
+        templates = [os.path.basename(f) for f in html_files]
+        if "tax_receipt_template.html" not in templates:
+            templates.append("tax_receipt_template.html")
+
+        # Get content of the active template
+        template_content = ""
+        active_template_path = os.path.join(dir_path, active_template)
+        if os.path.exists(active_template_path):
+            try:
+                with open(active_template_path, 'r', encoding='utf-8') as f:
+                    template_content = f.read()
+            except Exception:
+                pass
+
+        return Response({
+            'active_receipt_template': active_template,
+            'templates': list(set(templates)),
+            'template_content': template_content,
+        })
+
+    def post(self, request):
+        action = request.data.get('action')
+        dir_path = os.path.join(settings.BASE_DIR, 'accounting')
+        
+        if action == 'save_template_content':
+            template_name = request.data.get('template_name')
+            content = request.data.get('content')
+            if not template_name or not content:
+                return Response({'error': 'Missing template_name or content'}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Clean filename to prevent path traversal
+            template_name = os.path.basename(template_name)
+            if not template_name.endswith('.html'):
+                template_name += '.html'
+            
+            target_path = os.path.join(dir_path, template_name)
+            try:
+                with open(target_path, 'w', encoding='utf-8') as f:
+                    f.write(content)
+                return Response({'message': f'Template "{template_name}" saved successfully.'})
+            except Exception as e:
+                return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        else:
+            # Standard settings update: active template
+            active_template = request.data.get('active_receipt_template')
+            if not active_template:
+                return Response({'error': 'Missing active_receipt_template'}, status=status.HTTP_400_BAD_REQUEST)
+
+            active_template = os.path.basename(active_template)
+            settings_path = os.path.join(dir_path, 'system_settings.json')
+            
+            # Check if template actually exists
+            if not os.path.exists(os.path.join(dir_path, active_template)):
+                return Response({'error': 'Template file does not exist'}, status=status.HTTP_404_NOT_FOUND)
+
+            try:
+                config_data = {}
+                if os.path.exists(settings_path):
+                    with open(settings_path, 'r', encoding='utf-8') as f:
+                        config_data = json.load(f)
+                config_data['active_receipt_template'] = active_template
+                with open(settings_path, 'w', encoding='utf-8') as f:
+                    json.dump(config_data, f, indent=4)
+                return Response({'message': 'Active receipt template updated successfully.'})
+            except Exception as e:
+                return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

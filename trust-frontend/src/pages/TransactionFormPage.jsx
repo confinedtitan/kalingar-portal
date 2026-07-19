@@ -78,13 +78,56 @@ export default function TransactionFormPage({ t, onSuccess, onCancel }) {
       })
       .catch(console.error);
 
-    api.get('/accounting/trust-accounts/?status=Active')
+    api.get('/accounting/trust-accounts/?status=Active&page_size=1000')
       .then((res) => {
         const data = Array.isArray(res.data) ? res.data : res.data?.results || [];
         setTrustAccounts(data);
       })
       .catch(console.error);
   }, []);
+
+  useEffect(() => {
+    if (form.member && form.payment_mode !== 'Credit') {
+      let targetType = '';
+      if (form.payment_mode === 'Cash') {
+        targetType = 'Cash';
+      } else if (['Bank Transfer', 'UPI', 'Cheque'].includes(form.payment_mode)) {
+        targetType = 'Bank';
+      } else if (form.payment_mode === 'Commodities') {
+        targetType = 'Commodities';
+      }
+
+      if (targetType) {
+        const savedUserStr = localStorage.getItem('current_user');
+        const currentUser = savedUserStr ? JSON.parse(savedUserStr) : null;
+        const loginMemberId = currentUser?.id || currentUser?.member_id;
+        const custodianId = (targetType === 'Cash' && loginMemberId) ? loginMemberId : form.member;
+
+        const match = trustAccounts.find(
+          acc => acc.member && String(acc.member) === String(custodianId) && acc.account_type === targetType
+        );
+        if (match) {
+          setForm(prev => ({ ...prev, trust_account: match.account_id }));
+        }
+      }
+    }
+  }, [form.member, form.payment_mode, trustAccounts]);
+
+  const hasCustodianAccount = form.member && form.payment_mode !== 'Credit' && (() => {
+    let targetType = '';
+    if (form.payment_mode === 'Cash') targetType = 'Cash';
+    else if (['Bank Transfer', 'UPI', 'Cheque'].includes(form.payment_mode)) targetType = 'Bank';
+    else if (form.payment_mode === 'Commodities') targetType = 'Commodities';
+
+    const savedUserStr = localStorage.getItem('current_user');
+    const currentUser = savedUserStr ? JSON.parse(savedUserStr) : null;
+    const loginMemberId = currentUser?.id || currentUser?.member_id;
+    const custodianId = (targetType === 'Cash' && loginMemberId) ? loginMemberId : form.member;
+
+    return trustAccounts.some(
+      acc => acc.member && String(acc.member) === String(custodianId) && acc.account_type === targetType
+    );
+  })();
 
   const handleCreateHead = async () => {
     if (!newHead.name.trim()) return;
@@ -455,6 +498,7 @@ export default function TransactionFormPage({ t, onSuccess, onCancel }) {
                   value={form.trust_account}
                   onChange={(e) => setForm({ ...form, trust_account: e.target.value })}
                   style={styles.formInput}
+                  disabled={form.transaction_type === 'CREDIT' && form.payment_mode === 'Cash' && hasCustodianAccount}
                 >
                   <option value="">Select Trust Account</option>
                   {trustAccounts

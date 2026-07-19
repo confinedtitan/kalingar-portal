@@ -209,9 +209,9 @@ export default function AccountHeadsPage({ isAdmin, t, onSelectHead }) {
               <th style={styles.th}>{t.memberName || 'Name'}</th>
               <th style={styles.th}>{t.type || 'Type'}</th>
               <th style={styles.th}>{t.accountType || 'Account Type'}</th>
-              <th style={styles.th}>{t.totalDebits || 'Total Debits'}</th>
-              <th style={styles.th}>{t.totalCredits || 'Total Credits'}</th>
-              <th style={styles.th}>{t.netBalance || 'Net Balance'}</th>
+              <th style={styles.th}>{t.totalDebits || 'Total Debits'} (₹)</th>
+              <th style={styles.th}>{t.totalCredits || 'Total Credits'} (₹)</th>
+              <th style={styles.th}>{t.netBalance || 'Net Balance'} (₹)</th>
               <th style={styles.th}>{t.status}</th>
               <th style={styles.th}>{t.actions}</th>
             </tr>
@@ -246,13 +246,13 @@ export default function AccountHeadsPage({ isAdmin, t, onSelectHead }) {
                 </td>
                 <td style={styles.td}>{head.account_type || 'Revenue'}</td>
                 <td style={{ ...styles.td, fontWeight: '600', color: '#dc2626' }}>
-                  ₹{Number(head.total_debits || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {Number(head.total_debits || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
                 <td style={{ ...styles.td, fontWeight: '600', color: '#059669' }}>
-                  ₹{Number(head.total_credits || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {Number(head.total_credits || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
                 <td style={{ ...styles.td, fontWeight: '700', color: '#1e3a8a' }}>
-                  ₹{Number(head.net_balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {Number(head.net_balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
                 <td style={styles.td}>
                   <span style={head.is_active ? styles.statusPaid : styles.statusPending}>

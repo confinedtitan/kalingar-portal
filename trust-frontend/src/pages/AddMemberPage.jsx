@@ -12,6 +12,8 @@ export default function AddMemberPage({ t, onAddMember, member, onUpdateMember, 
     dob: '',
     address: '',
     addressTa: '',
+    addressCity: '',
+    addressCityTa: '',
     father: '',
     fatherName: '',
     fatherNameTa: '',
@@ -20,6 +22,8 @@ export default function AddMemberPage({ t, onAddMember, member, onUpdateMember, 
     spouseName: '',
     spouseNameTa: '',
     annualTax: 20000,
+    taxCount: 1.0,
+    oldBalance: 0.00,
     isFamilyHead: true,
     isActive: true,
     isExpired: false,
@@ -41,6 +45,8 @@ export default function AddMemberPage({ t, onAddMember, member, onUpdateMember, 
         dob: fields.date_of_birth ?? member.date_of_birth ?? member.dob ?? '',
         address: fields.address ?? member.address ?? '',
         addressTa: fields.address_ta ?? member.address_ta ?? '',
+        addressCity: fields.address_city ?? member.address_city ?? '',
+        addressCityTa: fields.address_city_ta ?? member.address_city_ta ?? '',
         father: fields.father ?? member.father ?? '',
         fatherName: fields.father_name ?? member.father_name ?? '',
         fatherNameTa: fields.father_name_ta ?? member.father_name_ta ?? '',
@@ -49,6 +55,8 @@ export default function AddMemberPage({ t, onAddMember, member, onUpdateMember, 
         spouseName: fields.spouse_name ?? member.spouse_name ?? '',
         spouseNameTa: fields.spouse_name_ta ?? member.spouse_name_ta ?? '',
         annualTax: fields.annual_tax ?? member.annual_tax ?? 20000,
+        taxCount: fields.tax_count ?? member.tax_count ?? 1.0,
+        oldBalance: fields.old_balance ?? member.old_balance ?? 0.00,
         isFamilyHead: fields.is_family_head ?? member.is_family_head ?? false,
         isActive: fields.is_active ?? member.is_active ?? true,
         isExpired: fields.is_expired ?? member.is_expired ?? false,
@@ -81,6 +89,7 @@ export default function AddMemberPage({ t, onAddMember, member, onUpdateMember, 
   const setMotherNameTa = useCallback((v) => setFormData(prev => ({ ...prev, motherNameTa: v })), []);
   const setSpouseNameTa = useCallback((v) => setFormData(prev => ({ ...prev, spouseNameTa: v })), []);
   const setAddressTa = useCallback((v) => setFormData(prev => ({ ...prev, addressTa: v })), []);
+  const setAddressCityTa = useCallback((v) => setFormData(prev => ({ ...prev, addressCityTa: v })), []);
   const setChildNameTa = useCallback((v) => setChildForm(prev => ({ ...prev, nameTa: v })), []);
 
   const nameTaProps = useTamilInput(formData.nameTa, setNameTa);
@@ -88,6 +97,7 @@ export default function AddMemberPage({ t, onAddMember, member, onUpdateMember, 
   const motherTaProps = useTamilInput(formData.motherNameTa, setMotherNameTa);
   const spouseTaProps = useTamilInput(formData.spouseNameTa, setSpouseNameTa);
   const addressTaProps = useTamilInput(formData.addressTa, setAddressTa);
+  const addressCityTaProps = useTamilInput(formData.addressCityTa, setAddressCityTa);
   const childNameTaProps = useTamilInput(childForm.nameTa, setChildNameTa);
 
   const handleSubmit = (e) => {
@@ -168,10 +178,9 @@ export default function AddMemberPage({ t, onAddMember, member, onUpdateMember, 
           </div>
 
           <div style={styles.formGroup}>
-            <label style={styles.formLabel}>{t.phoneNumber} *</label>
+            <label style={styles.formLabel}>{t.phoneNumber}</label>
             <input
               type="tel"
-              required
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
               style={styles.formInput}
@@ -319,6 +328,58 @@ export default function AddMemberPage({ t, onAddMember, member, onUpdateMember, 
               value={formData.spouseNameTa}
               {...spouseTaProps}
               style={styles.formInput}
+            />
+          </div>
+
+          {/* City / Town (English) */}
+          <div style={styles.formGroup}>
+            <label style={styles.formLabel}>{t.city || 'City / Town'} {langTag('EN')}</label>
+            <input
+              type="text"
+              value={formData.addressCity}
+              onChange={(e) => setFormData({ ...formData, addressCity: e.target.value })}
+              style={styles.formInput}
+              placeholder="Enter City / Town in English"
+            />
+          </div>
+
+          {/* City / Town (Tamil) */}
+          <div style={styles.formGroup}>
+            <label style={styles.formLabel}>{t.cityTamil || 'City / Town (Tamil)'} {langTag('தமிழ்')}</label>
+            <input
+              type="text"
+              value={formData.addressCityTa}
+              {...addressCityTaProps}
+              style={styles.formInput}
+              placeholder="Tamil name (type in Tamil mode)"
+            />
+          </div>
+
+          {/* Tax Count */}
+          <div style={styles.formGroup}>
+            <label style={styles.formLabel}>{t.taxCount || 'Tax Count'} *</label>
+            <input
+              type="number"
+              required
+              step="0.1"
+              value={formData.taxCount}
+              onChange={(e) => setFormData({ ...formData, taxCount: parseFloat(e.target.value) || 0.0 })}
+              style={styles.formInput}
+              placeholder="e.g. 1.0"
+            />
+          </div>
+
+          {/* Last Year Balance */}
+          <div style={styles.formGroup}>
+            <label style={styles.formLabel}>{t.lastYearBalance || 'Last Year Balance'} *</label>
+            <input
+              type="number"
+              required
+              step="0.01"
+              value={formData.oldBalance}
+              onChange={(e) => setFormData({ ...formData, oldBalance: parseFloat(e.target.value) || 0.00 })}
+              style={styles.formInput}
+              placeholder="e.g. 0.00"
             />
           </div>
         </div>

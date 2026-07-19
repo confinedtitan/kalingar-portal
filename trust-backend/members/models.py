@@ -36,6 +36,8 @@ class Member(models.Model):
     date_of_birth = models.DateField(null=True, blank=True, verbose_name="Date of Birth")
     address = models.TextField(verbose_name="Address")
     address_ta = models.TextField(blank=True, default='', verbose_name="Address (Tamil)")
+    address_city = models.CharField(max_length=100, blank=True, default='', verbose_name="City / Town")
+    address_city_ta = models.CharField(max_length=100, blank=True, default='', verbose_name="City / Town (Tamil)")
     
     # Family Information & Self-Referential Relationships
     father = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='children_set')
@@ -51,6 +53,8 @@ class Member(models.Model):
     annual_tax = models.DecimalField(max_digits=10, decimal_places=2, default=20000.00, verbose_name="Annual Tax Amount")
     amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name="Amount Paid")
     amount_due = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name="Amount Due")
+    tax_count = models.FloatField(default=1.0, verbose_name="Tax Count")
+    old_balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name="Last year Balance Tax Amount")
     
     # Status & Operational Flags
     is_family_head = models.BooleanField(default=False, verbose_name="Family Head")

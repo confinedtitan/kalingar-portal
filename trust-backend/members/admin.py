@@ -17,7 +17,7 @@ class MemberAdmin(ImportExportModelAdmin):
     
     list_display = (  # type: ignore[assignment]
         'name', 'name_ta', 'phone', 'payment_status',
-        'annual_tax', 'amount_paid', 'amount_due', 'is_active'
+        'annual_tax', 'amount_paid', 'amount_due', 'tax_count', 'old_balance', 'is_active'
     )
     
     list_filter = ('is_active', 'created_at')
@@ -31,13 +31,13 @@ class MemberAdmin(ImportExportModelAdmin):
             'fields': ('user',)
         }),
         ('Personal Information', {
-            'fields': ('name', 'name_ta', 'phone', 'date_of_birth', 'address', 'address_ta')
+            'fields': ('name', 'name_ta', 'phone', 'date_of_birth', 'address', 'address_ta', 'address_city', 'address_city_ta')
         }),
         ('Family Information', {
             'fields': ('father_name', 'father_name_ta', 'mother_name', 'mother_name_ta', 'spouse_name', 'spouse_name_ta')
         }),
         ('Financial Information', {
-            'fields': ('annual_tax', 'amount_paid', 'amount_due', 'payment_status')
+            'fields': ('annual_tax', 'amount_paid', 'amount_due', 'payment_status', 'tax_count', 'old_balance')
         }),
         ('Status', {
             'fields': ('is_active',)

@@ -60,8 +60,8 @@ class MemberViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminOrOwner]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]  # type: ignore[assignment]
     filterset_fields = ['is_active']
-    search_fields = ['name', 'name_ta', 'phone', 'father_name', 'father_name_ta']
-    ordering_fields = ['name', 'created_at', 'annual_tax', 'amount_due']
+    search_fields = ['name', 'name_ta', 'phone', 'father_name', 'father_name_ta', 'address_city', 'address_city_ta']
+    ordering_fields = ['name', 'created_at', 'annual_tax', 'amount_due', 'tax_count', 'old_balance']
     ordering = ['name']
     
     def get_serializer_class(self):
@@ -357,7 +357,7 @@ class MemberViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        results = process_excel_workbook(wb)
+        results = process_excel_workbook(wb, user=request.user)
         return Response(results, status=status.HTTP_200_OK)
 
 class AuthViewSet(viewsets.ViewSet):

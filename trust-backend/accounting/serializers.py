@@ -277,6 +277,60 @@ class AccountTransactionCreateSerializer(serializers.ModelSerializer):
             attrs['donor_name_ta'] = member.name_ta or ''
             attrs['donor_contact'] = member.phone or ''
             
+            # Enforce custodian member's active trust account on cash/digital/commodity transactions from/to members
+            transaction_type = attrs.get('transaction_type')
+            if payment_mode != 'Credit':
+                target_type = None
+                if payment_mode == 'Cash':
+                    target_type = 'Cash'
+                elif payment_mode in ['Bank Transfer', 'UPI', 'Cheque']:
+                    target_type = 'Bank'
+                elif payment_mode == 'Commodities':
+                    target_type = 'Commodities'
+
+                if target_type:
+                    # Resolve the entry member (the logged-in user who is creating the transaction)
+                    request = self.context.get('request')
+                    user = request.user if request else None
+                    entry_member = getattr(user, 'member_profile', None) if user else None
+
+                    # Cash transactions default to the entry member's (logged-in user) Cash trust account.
+                    # Other payment modes default to the selected member's (donor) trust account.
+                    custodian = entry_member if target_type == 'Cash' else member
+                    if not custodian:
+                        custodian = member
+
+                    member_account = None
+                    if custodian:
+                        member_account = TrustAccount.objects.filter(
+                            member=custodian,
+                            account_type=target_type,
+                            status='Active'
+                        ).first()
+
+                    if member_account:
+                        # For Cash CREDIT transactions, always enforce the custodian account (locked)
+                        # For other transactions, default only if not explicitly selected
+                        if (transaction_type == 'CREDIT' and target_type == 'Cash') or not attrs.get('trust_account'):
+                            attrs['trust_account'] = member_account
+
+                    # Final validation check
+                    resolved_account = attrs.get('trust_account')
+                    if not resolved_account:
+                        if transaction_type == 'CREDIT':
+                            raise serializers.ValidationError({
+                                "trust_account": f"Please select an active {target_type} Trust Account."
+                            })
+                    else:
+                        if resolved_account.status != 'Active':
+                            raise serializers.ValidationError({
+                                "trust_account": "The selected Trust Account is inactive."
+                            })
+                        if resolved_account.account_type != target_type:
+                            raise serializers.ValidationError({
+                                "trust_account": f"The selected Trust Account type must be {target_type}."
+                            })
+            
         return attrs
 
 

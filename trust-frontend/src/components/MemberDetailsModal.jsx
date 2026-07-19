@@ -50,7 +50,21 @@ export default function MemberDetailsModal({ member, t, onClose }) {
           />
           <div style={styles.detailItem}>
             <label>{t.phoneNumber}</label>
-            <div>{member.phone}</div>
+            <div>{member.phone || '-'}</div>
+          </div>
+          <BilingualDetail
+            label={t.city || 'City / Town'}
+            labelTa=""
+            value={member.address_city ?? member.addressCity}
+            valueTa={member.address_city_ta ?? member.addressCityTa}
+          />
+          <div style={styles.detailItem}>
+            <label>{t.taxCount || 'Tax Count'}</label>
+            <div>{Number(member.tax_count ?? member.taxCount ?? 1.0).toFixed(1)}</div>
+          </div>
+          <div style={styles.detailItem}>
+            <label>{t.lastYearBalance || 'Last Year Balance'}</label>
+            <div>₹{Number(member.old_balance ?? member.oldBalance ?? 0.00).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
           </div>
           {(member.reference_id || member.referenceId) && (
             <div style={styles.detailItem}>

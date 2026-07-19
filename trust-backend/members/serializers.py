@@ -49,12 +49,13 @@ class MemberSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'member_id', 'reference_id', 'username',
             'name', 'name_ta', 'phone', 'date_of_birth',
-            'address', 'address_ta',
+            'address', 'address_ta', 'address_city', 'address_city_ta',
             'father',
             'father_name', 'father_name_ta',
             'mother_name', 'mother_name_ta',
             'spouse_name', 'spouse_name_ta',
             'annual_tax', 'amount_paid', 'amount_due', 'payment_status',
+            'tax_count', 'old_balance',
             'is_active', 'is_expired', 'is_family_head', 'password_reset_required',
             'pending_update', 'profile_update_status',
             'children', 'taxes', 'transactions', 'created_at', 'updated_at'
@@ -92,22 +93,24 @@ class MemberSerializer(serializers.ModelSerializer):
 class MemberCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating a new member with children"""
     children = ChildSerializer(many=True, required=False)
-    password = serializers.CharField(write_only=True, required=True, min_length=8)
+    password = serializers.CharField(write_only=True, required=False, min_length=8, allow_blank=True, allow_null=True)
     
     class Meta:  # type: ignore[assignment]
         model = Member
         fields = [
             'name', 'name_ta', 'phone', 'password', 'date_of_birth',
-            'address', 'address_ta',
+            'address', 'address_ta', 'address_city', 'address_city_ta',
             'father',
             'father_name', 'father_name_ta',
             'mother_name', 'mother_name_ta',
             'spouse_name', 'spouse_name_ta',
-            'annual_tax', 'reference_id', 'children'
+            'annual_tax', 'tax_count', 'old_balance', 'reference_id', 'children'
         ]
     
     def validate_phone(self, value):
         """Normalize phone to 10 digits and check uniqueness"""
+        if not value:
+            return None
         import re
         value = value.strip().replace(' ', '')
         if value.startswith('+91'):
@@ -125,7 +128,7 @@ class MemberCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         """Create member with user account and children"""
         children_data = validated_data.pop('children', [])
-        password = validated_data.pop('password')
+        password = validated_data.pop('password', None)
         
         # Primary member created via the form is a family head by default
         validated_data['is_family_head'] = True
@@ -135,8 +138,8 @@ class MemberCreateSerializer(serializers.ModelSerializer):
         # Create member (will trigger provision_credentials automatically with user=None)
         member = Member.objects.create(**validated_data)
         
-        # Update password for the automatically provisioned user
-        if member.user:
+        # Update password for the automatically provisioned user if custom password is provided
+        if password and member.user:
             member.user.set_password(password)
             member.user.save()
         
@@ -170,12 +173,12 @@ class MemberUpdateSerializer(serializers.ModelSerializer):
         model = Member
         fields = [
             'name', 'name_ta', 'date_of_birth',
-            'address', 'address_ta',
+            'address', 'address_ta', 'address_city', 'address_city_ta',
             'father',
             'father_name', 'father_name_ta',
             'mother_name', 'mother_name_ta',
             'spouse_name', 'spouse_name_ta',
-            'annual_tax', 'reference_id', 'is_active', 'is_expired', 'is_family_head',
+            'annual_tax', 'tax_count', 'old_balance', 'reference_id', 'is_active', 'is_expired', 'is_family_head',
             'pending_update', 'profile_update_status',
             'children'
         ]
@@ -291,8 +294,8 @@ class MemberListSerializer(serializers.ModelSerializer):
     class Meta:  # type: ignore[assignment]
         model = Member
         fields = [
-            'id', 'member_id', 'reference_id', 'name', 'name_ta', 'phone', 'annual_tax', 'date_of_birth',
-            'address', 'address_ta',
+            'id', 'member_id', 'reference_id', 'name', 'name_ta', 'phone', 'annual_tax', 'tax_count', 'old_balance', 'date_of_birth',
+            'address', 'address_ta', 'address_city', 'address_city_ta',
             'amount_paid', 'amount_due', 'payment_status',
             'father',
             'father_name', 'father_name_ta',

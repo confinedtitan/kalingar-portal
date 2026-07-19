@@ -76,21 +76,19 @@ def parse_member_row(row):
     Expected column layout (0-indexed):
         0: Serial number (ignored)
         1: Member name
-        2: Member/plot ID hint (ignored)
-        3: Tax units (float)
-        4: City / address
-        5: Opening balance (ignored — may be formula)
-        6: Tax debit (ignored — may be formula)
-        7: Amount paid (tax credit)
-        8: Balance due (ignored — auto-calculated by model)
-        9: Phone number (integer with 91 prefix)
+        2: Reference ID (Column 3)
+        3: Tax Count (Column 4)
+        4: City / Town (Column 5)
+        5: Old Balance (Column 6)
+        6: Debit Amount (Column 7)
+        7: Credit Amount (Column 8)
+        8: Ignored / Balance due hint
+        9: Phone number (Column 10, integer with 91 prefix)
 
-    Returns a dict with keys: name, name_ta, phone, city, annual_tax, amount_paid
-    or None if the row should be skipped.
+    Returns a dict with parsed values or None if the row should be skipped.
     """
     # Ensure we have enough columns
     if len(row) < 10:
-        # Pad with None so index access doesn't fail
         row = list(row) + [None] * (10 - len(row))
 
     name = row[1]
@@ -99,68 +97,149 @@ def parse_member_row(row):
 
     name = str(name).strip()
 
-    # Tax units → annual_tax
-    tax_units = _safe_numeric(row[3], default=0)
-    annual_tax = round(tax_units * 1500)
+    # Column 3: Reference ID
+    reference_id = str(row[2]).strip() if row[2] is not None else ''
 
+    # Column 4: tax_count (float)
+    tax_count = _safe_numeric(row[3], default=1.0)
+
+    # Column 5: City
     city = str(row[4]).strip() if row[4] else ''
-    amount_paid = _safe_numeric(row[7], default=0)
+
+    # Column 6: old_balance (decimal, default 0.00 if empty)
+    old_balance = _safe_numeric(row[5], default=0.00)
+
+    # Column 7: debit_amount (to become debit transaction)
+    debit_amount = _safe_numeric(row[6], default=0.00)
+
+    # Column 8: credit_amount (to become credit transaction)
+    credit_amount = _safe_numeric(row[7], default=0.00)
+
+    # Column 10: phone (index 9)
     phone = normalize_phone(row[9])
 
     return {
         'name': name,
         'name_ta': name,       # Excel data is Tamil — store in both fields
         'phone': phone,
-        'city': city,
-        'annual_tax': annual_tax,
-        'amount_paid': Decimal(str(amount_paid)),
+        'reference_id': reference_id,
+        'tax_count': tax_count,
+        'address_city': city,
+        'address_city_ta': city,
+        'old_balance': Decimal(str(old_balance)),
+        'debit_amount': Decimal(str(debit_amount)),
+        'credit_amount': Decimal(str(credit_amount)),
     }
 
 
-def create_member_from_dict(data):
+def create_member_from_dict(data, user=None):
     """
     Create a Django User + Member from a parsed dict.
+    Also creates debit/credit transactions if amounts are specified.
 
     Returns (member, created, reason):
         - (member, True, None)  on success
         - (None, False, reason) when skipped or errored
     """
+    from decimal import Decimal
+    from accounting.models import AccountHead, AccountTransaction
+    from django.utils import timezone
+
     phone = data.get('phone')
     name = data.get('name', '')
 
-    if not phone:
-        return (None, False, f"No valid phone number for '{name}'")
-
-    # Check for existing member with this phone
-    if Member.objects.filter(phone=phone).exists():
+    # Check for existing member with this phone if phone is provided
+    if phone and Member.objects.filter(phone=phone).exists():
         return (None, False, f"Phone {phone} already exists, skipping '{name}'")
+
+    # Resolve or create fallback user
+    if not user:
+        user = User.objects.filter(is_superuser=True).first() or User.objects.filter(is_staff=True).first() or User.objects.first()
+    if not user:
+        user, _ = User.objects.get_or_create(username='system', defaults={'is_staff': True, 'is_superuser': True})
 
     try:
         with transaction.atomic():
+            # Create member
             member = Member(
                 user=None,
                 name=name,
                 name_ta=data.get('name_ta', ''),
-                phone=phone,
+                phone=phone or None,
+                reference_id=data.get('reference_id', ''),
+                tax_count=data.get('tax_count', 1.0),
+                address_city=data.get('address_city', ''),
+                address_city_ta=data.get('address_city_ta', ''),
+                old_balance=data.get('old_balance', Decimal('0.00')),
                 # Required fields that aren't in the Excel — use sensible defaults
                 date_of_birth='2000-01-01',
-                address=data.get('city', ''),
-                address_ta=data.get('city', ''),  # store city in Tamil address too
+                address=data.get('address_city', ''),
+                address_ta=data.get('address_city_ta', ''),
                 father_name='',
-                annual_tax=Decimal(str(data.get('annual_tax', 0))),
-                amount_paid=data.get('amount_paid', Decimal('0')),
+                annual_tax=Decimal('0.00'),  # will be recalculated by rollup
+                amount_paid=Decimal('0.00'),  # will be recalculated by rollup
                 password_reset_required=True,
                 is_family_head=True,
                 is_active=True,
                 is_expired=False,
             )
-            member.save()  # triggers auto-ID (KT-XXXX) and amount_due calc, and provision_credentials!
+            member.save()  # triggers auto-ID (KT-XXXX) and amount_due calc
+
+            # Resolve the "Kodai Vari" account head
+            account_head, _ = AccountHead.objects.get_or_create(
+                name='Kodai Vari',
+                defaults={
+                    'name_ta': 'கொடை வரி',
+                    'head_type': 'Kodai',
+                    'is_active': True,
+                    'account_type': 'Revenue',
+                }
+            )
+
+            # Add Debit transaction if amount > 0
+            debit_amt = data.get('debit_amount', Decimal('0.00'))
+            if debit_amt > 0:
+                AccountTransaction.objects.create(
+                    account_head=account_head,
+                    transaction_type='DEBIT',
+                    amount=debit_amt,
+                    transaction_date=timezone.now().date(),
+                    payment_mode='Credit',
+                    member=member,
+                    donor_name=member.name,
+                    donor_name_ta=member.name_ta,
+                    donor_contact=member.phone or '',
+                    purpose="Kodai Vari Debit (Excel Import)",
+                    entered_by=user
+                )
+
+            # Add Credit transaction if amount > 0
+            credit_amt = data.get('credit_amount', Decimal('0.00'))
+            if credit_amt > 0:
+                AccountTransaction.objects.create(
+                    account_head=account_head,
+                    transaction_type='CREDIT',
+                    amount=credit_amt,
+                    transaction_date=timezone.now().date(),
+                    payment_mode='Cash',
+                    member=member,
+                    donor_name=member.name,
+                    donor_name_ta=member.name_ta,
+                    donor_contact=member.phone or '',
+                    purpose="Kodai Vari Credit (Excel Import)",
+                    entered_by=user
+                )
+
+            # Refresh and resave to run final rollups & ensure amount_due is perfectly computed
+            member.refresh_from_db()
+            member.save()
+
         return (member, True, None)
     except Exception as exc:
         return (None, False, str(exc))
 
 
-def process_excel_workbook(wb):
+def process_excel_workbook(wb, user=None):
     """
     Process an openpyxl Workbook and return import results.
 
@@ -190,28 +269,19 @@ def process_excel_workbook(wb):
         name = parsed.get('name', '')
         phone = parsed.get('phone')
 
-        # Skip if no phone
-        if not phone:
-            errors.append({
-                'row': idx + 1,  # 1-based Excel row
-                'name': name,
-                'reason': 'No valid phone number',
-            })
-            skipped += 1
-            continue
+        if phone:
+            # Deduplicate phone within the same file
+            if phone in seen_phones:
+                errors.append({
+                    'row': idx + 1,
+                    'name': name,
+                    'reason': f'Duplicate phone {phone} in this file',
+                })
+                skipped += 1
+                continue
+            seen_phones.add(phone)
 
-        # Deduplicate within the same file
-        if phone in seen_phones:
-            errors.append({
-                'row': idx + 1,
-                'name': name,
-                'reason': f'Duplicate phone {phone} in this file',
-            })
-            skipped += 1
-            continue
-        seen_phones.add(phone)
-
-        member, was_created, reason = create_member_from_dict(parsed)
+        member, was_created, reason = create_member_from_dict(parsed, user=user)
         if was_created:
             created += 1
         else:
@@ -337,4 +407,30 @@ def trigger_succession(expired_member):
     if elder_son:
         elder_son.is_family_head = True
         elder_son.save()
+
+
+def getCurrentTaxYearRange(date):
+    """
+    Given a date or datetime object, returns (start_date, end_date) as datetime.date objects.
+    Tax year starts on August 1st and ends on July 31st of the following calendar year.
+    """
+    import datetime
+    if isinstance(date, datetime.datetime):
+        date = date.date()
+    elif isinstance(date, str):
+        from django.utils.dateparse import parse_date
+        parsed = parse_date(date)
+        if parsed:
+            date = parsed
+        else:
+            raise ValueError(f"Invalid date string: {date}")
+
+    if date.month >= 8:
+        start_date = datetime.date(date.year, 8, 1)
+        end_date = datetime.date(date.year + 1, 7, 31)
+    else:
+        start_date = datetime.date(date.year - 1, 8, 1)
+        end_date = datetime.date(date.year, 7, 31)
+    return start_date, end_date
+
 

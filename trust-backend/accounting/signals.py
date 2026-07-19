@@ -65,3 +65,16 @@ def create_receipt_on_transaction_save(sender, instance, created, **kwargs):
             " -- PDF will be regenerated on first download.",
             receipt_number, instance.pk, exc,
         )
+
+
+from django.db.models.signals import post_delete
+
+@receiver(post_delete, sender=AccountTransaction)
+def handle_transaction_delete(sender, instance, **kwargs):
+    """
+    Recalculates a member's financial rollups if an AccountTransaction
+    is hard deleted (e.g. from tests or Django Admin).
+    """
+    if instance.member:
+        from .utils import recalculate_member_financials
+        recalculate_member_financials(instance.member, instance.transaction_date)

@@ -306,7 +306,28 @@ class AccountTransaction(models.Model):
 
     def save(self, *args, **kwargs):
         self.full_clean()
+        
+        is_new = self.pk is None
+        orig_member = None
+        orig_date = None
+
+        if not is_new:
+            try:
+                orig = AccountTransaction.objects.get(pk=self.pk)
+                orig_member = orig.member
+                orig_date = orig.transaction_date
+            except AccountTransaction.DoesNotExist:
+                pass
+
         super().save(*args, **kwargs)
+
+        if orig_member and (orig_member != self.member or orig_date != self.transaction_date):
+            from .utils import recalculate_member_financials
+            recalculate_member_financials(orig_member, orig_date)
+
+        if self.member:
+            from .utils import recalculate_member_financials
+            recalculate_member_financials(self.member, self.transaction_date)
 
 
 # ---------------------------------------------------------------------------

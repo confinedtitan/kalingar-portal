@@ -277,9 +277,9 @@ export default function ReportsPage({ t }) {
                         <th style={styles.th}>Head Name</th>
                         <th style={styles.th}>Type</th>
                         <th style={styles.th}>Category</th>
-                        <th style={styles.th}>Total Debits</th>
-                        <th style={styles.th}>Total Credits</th>
-                        <th style={styles.th}>Net Balance</th>
+                        <th style={styles.th}>Total Debits (₹)</th>
+                        <th style={styles.th}>Total Credits (₹)</th>
+                        <th style={styles.th}>Net Balance (₹)</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -288,9 +288,9 @@ export default function ReportsPage({ t }) {
                           <td style={{ ...styles.td, fontWeight: '600' }}>{h.name}</td>
                           <td style={styles.td}>{h.head_type}</td>
                           <td style={styles.td}>{h.account_type}</td>
-                          <td style={{ ...styles.td, color: '#dc2626' }}>₹{Number(h.total_debits).toFixed(2)}</td>
-                          <td style={{ ...styles.td, color: '#059669' }}>₹{Number(h.total_credits).toFixed(2)}</td>
-                          <td style={{ ...styles.td, fontWeight: '700' }}>₹{Number(h.net_balance).toFixed(2)}</td>
+                          <td style={{ ...styles.td, color: '#dc2626' }}>{Number(h.total_debits).toFixed(2)}</td>
+                          <td style={{ ...styles.td, color: '#059669' }}>{Number(h.total_credits).toFixed(2)}</td>
+                          <td style={{ ...styles.td, fontWeight: '700' }}>{Number(h.net_balance).toFixed(2)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -352,7 +352,7 @@ export default function ReportsPage({ t }) {
                         <th style={styles.th}>Date</th>
                         <th style={styles.th}>Account Head</th>
                         <th style={styles.th}>Type</th>
-                        <th style={styles.th}>Amount</th>
+                        <th style={styles.th}>Amount (₹)</th>
                         <th style={styles.th}>Mode</th>
                         <th style={styles.th}>Donor/Payee</th>
                         <th style={styles.th}>Remarks</th>
@@ -372,7 +372,7 @@ export default function ReportsPage({ t }) {
                               {t.transaction_type}
                             </span>
                           </td>
-                          <td style={{ ...styles.td, fontWeight: '700' }}>₹{Number(t.amount).toFixed(2)}</td>
+                          <td style={{ ...styles.td, fontWeight: '700' }}>{Number(t.amount).toFixed(2)}</td>
                           <td style={styles.td}>{t.payment_mode}</td>
                           <td style={styles.td}>{t.transaction_type === 'DEBIT' ? t.paid_to : t.donor_name}</td>
                           <td style={styles.td}>{t.purpose || t.purpose_description}</td>
@@ -399,9 +399,9 @@ export default function ReportsPage({ t }) {
                           <tr>
                             <th style={styles.th}>Head Name</th>
                             <th style={styles.th}>Type</th>
-                            <th style={styles.th}>Total Debits</th>
-                            <th style={styles.th}>Total Credits</th>
-                            <th style={styles.th}>Net Balance</th>
+                            <th style={styles.th}>Total Debits (₹)</th>
+                            <th style={styles.th}>Total Credits (₹)</th>
+                            <th style={styles.th}>Net Balance (₹)</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -409,9 +409,9 @@ export default function ReportsPage({ t }) {
                             <tr key={h.id} style={styles.tr}>
                               <td style={{ ...styles.td, fontWeight: '600' }}>{h.name}</td>
                               <td style={styles.td}>{h.head_type}</td>
-                              <td style={{ ...styles.td, color: '#dc2626' }}>₹{Number(h.total_debits).toFixed(2)}</td>
-                              <td style={{ ...styles.td, color: '#059669' }}>₹{Number(h.total_credits).toFixed(2)}</td>
-                              <td style={{ ...styles.td, fontWeight: '700' }}>₹{Number(h.net_balance).toFixed(2)}</td>
+                              <td style={{ ...styles.td, color: '#dc2626' }}>{Number(h.total_debits).toFixed(2)}</td>
+                              <td style={{ ...styles.td, color: '#059669' }}>{Number(h.total_credits).toFixed(2)}</td>
+                              <td style={{ ...styles.td, fontWeight: '700' }}>{Number(h.net_balance).toFixed(2)}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -463,7 +463,7 @@ export default function ReportsPage({ t }) {
                           <tr>
                             <th style={styles.th}>Date</th>
                             <th style={styles.th}>Type</th>
-                            <th style={styles.th}>Amount</th>
+                            <th style={styles.th}>Amount (₹)</th>
                             <th style={styles.th}>Mode</th>
                             <th style={styles.th}>Donor/Payee</th>
                             <th style={styles.th}>Remarks</th>
@@ -482,7 +482,7 @@ export default function ReportsPage({ t }) {
                                   {t.transaction_type}
                                 </span>
                               </td>
-                              <td style={{ ...styles.td, fontWeight: '700' }}>₹{Number(t.amount).toFixed(2)}</td>
+                              <td style={{ ...styles.td, fontWeight: '700' }}>{Number(t.amount).toFixed(2)}</td>
                               <td style={styles.td}>{t.payment_mode}</td>
                               <td style={styles.td}>{t.transaction_type === 'DEBIT' ? t.paid_to : t.donor_name}</td>
                               <td style={styles.td}>{t.purpose || t.purpose_description}</td>
@@ -580,7 +580,7 @@ export default function ReportsPage({ t }) {
                         <th style={styles.th}>Account Head</th>
                         <th style={styles.th}>Bank Account</th>
                         <th style={styles.th}>Type</th>
-                        <th style={styles.th}>Amount</th>
+                        <th style={styles.th}>Amount (₹)</th>
                         <th style={styles.th}>Donor/Payee</th>
                         <th style={styles.th}>Remarks</th>
                       </tr>
@@ -600,7 +600,7 @@ export default function ReportsPage({ t }) {
                               {t.transaction_type}
                             </span>
                           </td>
-                          <td style={{ ...styles.td, fontWeight: '700' }}>₹{Number(t.amount).toFixed(2)}</td>
+                          <td style={{ ...styles.td, fontWeight: '700' }}>{Number(t.amount).toFixed(2)}</td>
                           <td style={styles.td}>{t.transaction_type === 'DEBIT' ? t.paid_to : t.donor_name}</td>
                           <td style={styles.td}>{t.purpose || t.purpose_description}</td>
                         </tr>
@@ -623,7 +623,7 @@ export default function ReportsPage({ t }) {
                         <th style={styles.th}>Account Head</th>
                         <th style={styles.th}>Cash Account</th>
                         <th style={styles.th}>Type</th>
-                        <th style={styles.th}>Amount</th>
+                        <th style={styles.th}>Amount (₹)</th>
                         <th style={styles.th}>Donor/Payee</th>
                         <th style={styles.th}>Remarks</th>
                       </tr>
@@ -643,7 +643,7 @@ export default function ReportsPage({ t }) {
                               {t.transaction_type}
                             </span>
                           </td>
-                          <td style={{ ...styles.td, fontWeight: '700' }}>₹{Number(t.amount).toFixed(2)}</td>
+                          <td style={{ ...styles.td, fontWeight: '700' }}>{Number(t.amount).toFixed(2)}</td>
                           <td style={styles.td}>{t.transaction_type === 'DEBIT' ? t.paid_to : t.donor_name}</td>
                           <td style={styles.td}>{t.purpose || t.purpose_description}</td>
                         </tr>
@@ -675,9 +675,9 @@ export default function ReportsPage({ t }) {
                         <th style={styles.th}>Member ID</th>
                         <th style={styles.th}>Name</th>
                         <th style={styles.th}>Contact</th>
-                        <th style={styles.th}>Total Invoiced (Debits)</th>
-                        <th style={styles.th}>Total Paid (Credits)</th>
-                        <th style={styles.th}>Outstanding Balance</th>
+                        <th style={styles.th}>Total Invoiced (Debits) (₹)</th>
+                        <th style={styles.th}>Total Paid (Credits) (₹)</th>
+                        <th style={styles.th}>Outstanding Balance (₹)</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -697,10 +697,10 @@ export default function ReportsPage({ t }) {
                                 {m.name} {m.name_ta ? `(${m.name_ta})` : ''}
                               </td>
                               <td style={styles.td}>{m.phone}</td>
-                              <td style={{ ...styles.td, color: '#dc2626' }}>₹{Number(m.total_debits).toFixed(2)}</td>
-                              <td style={{ ...styles.td, color: '#059669' }}>₹{Number(m.total_credits).toFixed(2)}</td>
+                              <td style={{ ...styles.td, color: '#dc2626' }}>{Number(m.total_debits).toFixed(2)}</td>
+                              <td style={{ ...styles.td, color: '#059669' }}>{Number(m.total_credits).toFixed(2)}</td>
                               <td style={{ ...styles.td, fontWeight: '800', color: isOwed ? '#b91c1c' : '#166534' }}>
-                                {isOwed ? `₹${val.toFixed(2)} (Due)` : `₹${Math.abs(val).toFixed(2)} (Overpaid)`}
+                                {isOwed ? `${val.toFixed(2)} (Due)` : `${Math.abs(val).toFixed(2)} (Overpaid)`}
                               </td>
                             </tr>
                           );
@@ -744,7 +744,7 @@ export default function ReportsPage({ t }) {
                         <thead>
                           <tr>
                             <th style={styles.th}>Date</th>
-                            <th style={styles.th}>Amount</th>
+                            <th style={styles.th}>Amount (₹)</th>
                             <th style={styles.th}>Paid To</th>
                             <th style={styles.th}>Bill Reference</th>
                             <th style={styles.th}>Remarks / Description</th>
@@ -754,7 +754,7 @@ export default function ReportsPage({ t }) {
                           {expenseTxns.map(t => (
                             <tr key={t.id} style={styles.tr}>
                               <td style={styles.td}>{formatDate(t.transaction_date)}</td>
-                              <td style={{ ...styles.td, fontWeight: '700', color: '#b91c1c' }}>₹{Number(t.amount).toFixed(2)}</td>
+                              <td style={{ ...styles.td, fontWeight: '700', color: '#b91c1c' }}>{Number(t.amount).toFixed(2)}</td>
                               <td style={styles.td}>{t.paid_to || '—'}</td>
                               <td style={styles.td}>{t.bill_reference || '—'}</td>
                               <td style={styles.td}>{t.purpose_description || '—'}</td>

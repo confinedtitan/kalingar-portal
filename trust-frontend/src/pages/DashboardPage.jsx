@@ -196,25 +196,6 @@ export default function DashboardPage({ isAdmin, members: rawMembers, payments: 
           ))}
         </div>
       </div>
-
-      {/* Recent Activity — admin only */}
-      {isAdmin && (
-        <div style={{ ...sectionStyle, marginTop: '0' }}>
-          <h3 style={sectionTitleStyle}>💳 {t.recentActivity}</h3>
-          <div style={styles.activityList}>
-            {payments.slice(-5).reverse().map(payment => (
-              <div key={payment.id} style={styles.activityItem}>
-                <div style={styles.activityIcon}>💳</div>
-                <div style={styles.activityContent}>
-                  <div style={styles.activityTitle}>{payment.member_name ?? payment.memberName}</div>
-                  <div style={styles.activityMeta}>{payment.payment_date ?? payment.date} • {payment.payment_method ?? payment.method}</div>
-                </div>
-                <div style={styles.activityAmount}>₹{Number(payment.amount || 0).toLocaleString()}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
