@@ -12,6 +12,7 @@ db.sqlite3
 *.egg-info/
 venv/
 .env
+*.xlsx
 
 # IDE
 .vscode/
