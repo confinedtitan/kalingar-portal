@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# type: ignore
 """
 CLI script to clean/reset SQLite database tables for Kalingar Trust Portal.
 
